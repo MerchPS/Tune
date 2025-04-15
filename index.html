@@ -11,8 +11,6 @@
       text-align: center;
       padding: 2rem;
       transition: background 0.3s, color 0.3s;
-      position: relative;
-      overflow: hidden;
     }
 
     input[type="range"] {
@@ -62,25 +60,12 @@
     .light-mode button:hover {
       background: #004d40;
     }
-
-    /* New Particles */
-    #particleCanvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: -1;
-    }
-
   </style>
 </head>
 <body>
 
   <h1>🎧 Advanced Audio Player 🎶</h1>
 
-  <!-- Button to select MP3 file -->
   <input type="file" id="audioFile" accept="audio/mp3" />
   <br><br>
 
@@ -105,7 +90,6 @@
   <button id="toggleTheme">🌗 Dark/Light Mode</button>
 
   <canvas id="visualizer" width="400" height="400"></canvas>
-  <canvas id="particleCanvas"></canvas>
 
   <script>
     const audioFile = document.getElementById('audioFile');
@@ -118,8 +102,6 @@
     const toggleAutoTune = document.getElementById('toggleAutoTune');
     const toggleReverb = document.getElementById('toggleReverb');
     const toggleTheme = document.getElementById('toggleTheme');
-    const particleCanvas = document.getElementById('particleCanvas');
-    const particleCtx = particleCanvas.getContext('2d');
 
     let audioContext, source, analyser, gainNode;
     let bassFilter, midFilter, trebleFilter, panner, convolver;
@@ -129,10 +111,6 @@
     let autoTuneInterval;
     let panAngle = 0;
     let audioBuffer;
-
-    // Particle system
-    let particles = [];
-    const numParticles = 150;
 
     audioFile.addEventListener('change', function () {
       const file = this.files[0];
@@ -207,7 +185,6 @@
       visualize();
       loopPanning();
       startAutoTune();
-      generateParticles(); // Start particles
     }
 
     function updateFilters() {
@@ -265,74 +242,58 @@
 
         bassSlider.value = (1.2 - bassAvg / 128).toFixed(2);
         midSlider.value = (1.1 - midAvg / 256).toFixed(2);
-        trebleSlider.value = (1.3 - trebleAvg / 512).toFixed(2);
-
+        trebleSlider.value = (1.3 - trebleAvg / 256).toFixed(2);
         updateFilters();
-      }, 500);
+      }, 800);
     }
 
     function loopPanning() {
-      if (is8DActive) {
-        panAngle += 0.02;
-        panner.pan.value = Math.sin(panAngle);
+      function panLoop() {
+        if (is8DActive) {
+          panAngle += 0.02;
+          panner.pan.value = Math.sin(panAngle);
+        } else {
+          panner.pan.value = 0;
+        }
+        requestAnimationFrame(panLoop);
       }
-      requestAnimationFrame(loopPanning);
+      panLoop();
     }
 
-    // Particle system generation
-    function generateParticles() {
-      particles = [];
-      for (let i = 0; i < numParticles; i++) {
-        particles.push({
-          x: Math.random() * window.innerWidth,
-          y: Math.random() * window.innerHeight,
-          size: Math.random() * 3 + 1,
-          speedX: Math.random() * 2 - 1,
-          speedY: Math.random() * 2 - 1,
-        });
+    function visualize() {
+      const canvas = document.getElementById('visualizer');
+      const ctx = canvas.getContext('2d');
+
+      function draw() {
+        const freqData = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(freqData);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = 'rgb(0, 255, 255)';
+        for (let i = 0; i < freqData.length; i++) {
+          const barHeight = freqData[i];
+          ctx.fillRect(i * 3, canvas.height - barHeight, 2, barHeight);
+        }
+
+        requestAnimationFrame(draw);
       }
-      animateParticles();
+      draw();
     }
 
-    function animateParticles() {
-      particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
-      
-      // Get frequency data
-      const freqData = new Uint8Array(analyser.frequencyBinCount);
-      analyser.getByteFrequencyData(freqData);
+    function createImpulseResponse(context) {
+      const buffer = context.createBuffer(2, context.sampleRate * 3, context.sampleRate);
+      const left = buffer.getChannelData(0);
+      const right = buffer.getChannelData(1);
 
-      const bassAvg = freqData.slice(0, 40).reduce((a, b) => a + b, 0) / 40;
+      for (let i = 0; i < buffer.length; i++) {
+        left[i] = (Math.random() * 2 - 1) * 0.2;
+        right[i] = (Math.random() * 2 - 1) * 0.2;
+      }
 
-      // Move particles based on bass frequency
-      particles.forEach((p) => {
-        p.x += p.speedX + (bassAvg / 128); // Adjust speed based on bass
-        p.y += p.speedY + (bassAvg / 128);
-
-        // Recycle particles off-screen
-        if (p.x > particleCanvas.width) p.x = 0;
-        if (p.y > particleCanvas.height) p.y = 0;
-        if (p.x < 0) p.x = particleCanvas.width;
-        if (p.y < 0) p.y = particleCanvas.height;
-
-        particleCtx.beginPath();
-        particleCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        particleCtx.fillStyle = `rgba(255, 255, 255, 0.7)`;
-        particleCtx.fill();
-      });
-
-      requestAnimationFrame(animateParticles);
+      return buffer;
     }
-
-    // Resizing canvas
-    window.addEventListener('resize', () => {
-      particleCanvas.width = window.innerWidth;
-      particleCanvas.height = window.innerHeight;
-    });
-
-    // Initial canvas size
-    particleCanvas.width = window.innerWidth;
-    particleCanvas.height = window.innerHeight;
-
   </script>
+
 </body>
 </html>
