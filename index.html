@@ -2,25 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>🎧 8D Audio + Auto Tuner</title>
+  <title>🎧 Advanced Audio Player</title>
   <style>
     body {
       font-family: sans-serif;
-      background: linear-gradient(145deg, #111, #222);
+      background-color: #121212;
       color: white;
       text-align: center;
       padding: 2rem;
+      transition: background 0.3s, color 0.3s;
     }
+
     input[type="range"] {
       width: 300px;
     }
+
     canvas {
       margin-top: 2rem;
       background: #111;
       border-radius: 10px;
     }
+
     button {
-      margin: 1rem;
+      margin: 0.5rem;
       padding: 10px 20px;
       background: #00bcd4;
       color: white;
@@ -29,43 +33,84 @@
       cursor: pointer;
       transition: 0.3s;
     }
+
     button:hover {
       background: #0097a7;
+    }
+
+    .slider-label {
+      margin-top: 1rem;
+      display: block;
+    }
+
+    .light-mode {
+      background-color: #f0f0f0;
+      color: #222;
+    }
+
+    .light-mode canvas {
+      background: #ddd;
+    }
+
+    .light-mode button {
+      background: #00796b;
+      color: white;
+    }
+
+    .light-mode button:hover {
+      background: #004d40;
     }
   </style>
 </head>
 <body>
 
-  <h1>🎧 8D Audio + Auto Tune 🎶</h1>
+  <h1>🎧 Advanced Audio Player 🎶</h1>
 
   <input type="file" id="audioFile" accept="audio/mp3" />
   <br><br>
 
-  <label>Bass</label><br>
+  <label class="slider-label">Volume</label>
+  <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.7"><br>
+
+  <label class="slider-label">Playback Speed</label>
+  <input type="range" id="speedSlider" min="0.5" max="2" step="0.1" value="1"><br>
+
+  <label class="slider-label">Bass</label>
   <input type="range" id="bassSlider" min="0.5" max="2" step="0.01" value="1"><br>
 
-  <label>Mid</label><br>
+  <label class="slider-label">Mid</label>
   <input type="range" id="midSlider" min="0.5" max="2" step="0.01" value="1"><br>
 
-  <label>Treble</label><br>
+  <label class="slider-label">Treble</label>
   <input type="range" id="trebleSlider" min="0.5" max="2" step="0.01" value="1"><br><br>
 
   <button id="toggle8D">🔁 8D Audio: ON</button>
+  <button id="toggleAutoTune">🎚️ Auto-Tune: ON</button>
+  <button id="toggleReverb">🌊 Reverb: OFF</button>
+  <button id="toggleTheme">🌗 Dark/Light Mode</button>
 
-  <canvas id="visualizer" width="600" height="150"></canvas>
+  <canvas id="visualizer" width="400" height="400"></canvas>
 
   <script>
     const audioFile = document.getElementById('audioFile');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const speedSlider = document.getElementById('speedSlider');
     const bassSlider = document.getElementById('bassSlider');
     const midSlider = document.getElementById('midSlider');
     const trebleSlider = document.getElementById('trebleSlider');
     const toggle8D = document.getElementById('toggle8D');
+    const toggleAutoTune = document.getElementById('toggleAutoTune');
+    const toggleReverb = document.getElementById('toggleReverb');
+    const toggleTheme = document.getElementById('toggleTheme');
 
-    let audioContext, source, analyser;
-    let bassFilter, midFilter, trebleFilter, panner;
+    let audioContext, source, analyser, gainNode;
+    let bassFilter, midFilter, trebleFilter, panner, convolver;
     let is8DActive = true;
+    let isAutoTuneActive = true;
+    let isReverbActive = false;
     let autoTuneInterval;
     let panAngle = 0;
+    let audioBuffer;
 
     audioFile.addEventListener('change', function () {
       const file = this.files[0];
@@ -76,44 +121,71 @@
         if (audioContext) audioContext.close();
 
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
         audioContext.decodeAudioData(e.target.result, function (buffer) {
-          source = audioContext.createBufferSource();
-          source.buffer = buffer;
-
-          bassFilter = audioContext.createBiquadFilter();
-          bassFilter.type = 'lowshelf';
-          bassFilter.frequency.value = 200;
-
-          midFilter = audioContext.createBiquadFilter();
-          midFilter.type = 'peaking';
-          midFilter.frequency.value = 1000;
-          midFilter.Q.value = 1;
-
-          trebleFilter = audioContext.createBiquadFilter();
-          trebleFilter.type = 'highshelf';
-          trebleFilter.frequency.value = 3000;
-
-          panner = audioContext.createStereoPanner();
-
-          analyser = audioContext.createAnalyser();
-          analyser.fftSize = 2048;
-
-          source.connect(bassFilter);
-          bassFilter.connect(midFilter);
-          midFilter.connect(trebleFilter);
-          trebleFilter.connect(panner);
-          panner.connect(analyser);
-          analyser.connect(audioContext.destination);
-
-          source.start(0);
-          updateFilters();
-          visualize();
-          loopPanning();
-          startAutoTune();
+          audioBuffer = buffer;
+          playAudio();
         });
       };
       reader.readAsArrayBuffer(file);
     });
+
+    function playAudio() {
+      if (!audioBuffer) return;
+
+      if (source) source.stop();
+
+      source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.playbackRate.value = parseFloat(speedSlider.value);
+
+      gainNode = audioContext.createGain();
+      gainNode.gain.value = parseFloat(volumeSlider.value);
+
+      bassFilter = audioContext.createBiquadFilter();
+      bassFilter.type = 'lowshelf';
+      bassFilter.frequency.value = 200;
+
+      midFilter = audioContext.createBiquadFilter();
+      midFilter.type = 'peaking';
+      midFilter.frequency.value = 1000;
+      midFilter.Q.value = 1;
+
+      trebleFilter = audioContext.createBiquadFilter();
+      trebleFilter.type = 'highshelf';
+      trebleFilter.frequency.value = 3000;
+
+      panner = audioContext.createStereoPanner();
+
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+
+      convolver = audioContext.createConvolver();
+      convolver.buffer = createImpulseResponse(audioContext);
+
+      // Chain setup
+      source.connect(bassFilter);
+      bassFilter.connect(midFilter);
+      midFilter.connect(trebleFilter);
+
+      let lastNode = trebleFilter;
+
+      if (isReverbActive) {
+        trebleFilter.connect(convolver);
+        lastNode = convolver;
+      }
+
+      lastNode.connect(panner);
+      panner.connect(gainNode);
+      gainNode.connect(analyser);
+      analyser.connect(audioContext.destination);
+
+      source.start(0);
+      updateFilters();
+      visualize();
+      loopPanning();
+      startAutoTune();
+    }
 
     function updateFilters() {
       bassFilter.gain.value = parseFloat(bassSlider.value);
@@ -121,9 +193,72 @@
       trebleFilter.gain.value = parseFloat(trebleSlider.value);
     }
 
+    volumeSlider.addEventListener('input', () => {
+      if (gainNode) gainNode.gain.value = parseFloat(volumeSlider.value);
+    });
+
+    speedSlider.addEventListener('input', () => {
+      if (source) source.playbackRate.value = parseFloat(speedSlider.value);
+    });
+
     bassSlider.addEventListener('input', updateFilters);
     midSlider.addEventListener('input', updateFilters);
     trebleSlider.addEventListener('input', updateFilters);
+
+    toggle8D.addEventListener('click', () => {
+      is8DActive = !is8DActive;
+      toggle8D.textContent = `🔁 8D Audio: ${is8DActive ? 'ON' : 'OFF'}`;
+    });
+
+    toggleAutoTune.addEventListener('click', () => {
+      isAutoTuneActive = !isAutoTuneActive;
+      toggleAutoTune.textContent = `🎚️ Auto-Tune: ${isAutoTuneActive ? 'ON' : 'OFF'}`;
+      if (isAutoTuneActive) startAutoTune();
+      else clearInterval(autoTuneInterval);
+    });
+
+    toggleReverb.addEventListener('click', () => {
+      isReverbActive = !isReverbActive;
+      toggleReverb.textContent = `🌊 Reverb: ${isReverbActive ? 'ON' : 'OFF'}`;
+      playAudio(); // Reload to apply
+    });
+
+    toggleTheme.addEventListener('click', () => {
+      document.body.classList.toggle('light-mode');
+    });
+
+    function startAutoTune() {
+      clearInterval(autoTuneInterval);
+      autoTuneInterval = setInterval(() => {
+        if (!isAutoTuneActive) return;
+
+        const freqData = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(freqData);
+
+        const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+        const bassAvg = avg(freqData.slice(0, 40));
+        const midAvg = avg(freqData.slice(40, 80));
+        const trebleAvg = avg(freqData.slice(80));
+
+        bassSlider.value = (1.2 - bassAvg / 128).toFixed(2);
+        midSlider.value = (1.1 - midAvg / 256).toFixed(2);
+        trebleSlider.value = (1.3 - trebleAvg / 256).toFixed(2);
+        updateFilters();
+      }, 800);
+    }
+
+    function loopPanning() {
+      function panLoop() {
+        if (is8DActive) {
+          panAngle += 0.02;
+          panner.pan.value = Math.sin(panAngle);
+        } else {
+          panner.pan.value = 0;
+        }
+        requestAnimationFrame(panLoop);
+      }
+      panLoop();
+    }
 
     function visualize() {
       const canvas = document.getElementById('visualizer');
@@ -135,67 +270,41 @@
         requestAnimationFrame(draw);
         analyser.getByteFrequencyData(dataArray);
 
-        ctx.fillStyle = '#111';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        const barWidth = (canvas.width / bufferLength) * 2.5;
-        let x = 0;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
 
         for (let i = 0; i < bufferLength; i++) {
-          const barHeight = dataArray[i] / 2;
-          ctx.fillStyle = `rgb(${barHeight + 100},50,200)`;
-          ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-          x += barWidth + 1;
+          const radius = dataArray[i] * 0.7;
+          const angle = (i / bufferLength) * Math.PI * 2;
+          const x = Math.cos(angle) * radius;
+          const y = Math.sin(angle) * radius;
+
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(x, y);
+          ctx.strokeStyle = `hsl(${i * 6}, 100%, 60%)`;
+          ctx.stroke();
         }
+
+        ctx.restore();
       }
       draw();
     }
 
-    function loopPanning() {
-      function panLoop() {
-        if (is8DActive) {
-          panAngle += 0.01;
-          panner.pan.value = Math.sin(panAngle);
-        } else {
-          panner.pan.value = 0;
+    function createImpulseResponse(context) {
+      const rate = context.sampleRate;
+      const length = rate * 3;
+      const impulse = context.createBuffer(2, length, rate);
+      for (let i = 0; i < 2; i++) {
+        const channel = impulse.getChannelData(i);
+        for (let j = 0; j < length; j++) {
+          channel[j] = (Math.random() * 2 - 1) * Math.pow(1 - j / length, 2);
         }
-        requestAnimationFrame(panLoop);
       }
-      panLoop();
-    }
-
-    toggle8D.addEventListener('click', () => {
-      is8DActive = !is8DActive;
-      toggle8D.textContent = `🔁 8D Audio: ${is8DActive ? 'ON' : 'OFF'}`;
-    });
-
-    function startAutoTune() {
-      if (autoTuneInterval) clearInterval(autoTuneInterval);
-      autoTuneInterval = setInterval(() => {
-        const freqData = new Uint8Array(analyser.frequencyBinCount);
-        analyser.getByteFrequencyData(freqData);
-
-        const bassRange = freqData.slice(0, 100);
-        const midRange = freqData.slice(100, 1000);
-        const trebleRange = freqData.slice(1000);
-
-        const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
-
-        const bassAvg = avg(bassRange);
-        const midAvg = avg(midRange);
-        const trebleAvg = avg(trebleRange);
-
-        const bassBoost = Math.min(2, Math.max(0.8, 1.5 - bassAvg / 128));
-        const midBoost = Math.min(2, Math.max(0.7, 1.2 - midAvg / 256));
-        const trebleBoost = Math.min(2, Math.max(0.7, 1.4 - trebleAvg / 256));
-
-        bassSlider.value = bassBoost.toFixed(2);
-        midSlider.value = midBoost.toFixed(2);
-        trebleSlider.value = trebleBoost.toFixed(2);
-
-        updateFilters();
-      }, 800); // Update every 800ms
+      return impulse;
     }
   </script>
+
 </body>
 </html>
