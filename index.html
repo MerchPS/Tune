@@ -3,172 +3,191 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>8D Audio MP3 Tuner</title>
+  <title>8D Audio Tuner 🎧</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #0e0e0e;
-      color: #fff;
+      font-family: sans-serif;
       text-align: center;
-      padding: 30px;
-    }
-    input[type="file"] {
-      margin: 10px;
-    }
-    canvas {
-      width: 100%;
-      height: 150px;
-      background: black;
-      border-radius: 10px;
-      margin-top: 20px;
-    }
-    label {
-      display: block;
-      margin: 10px;
+      background: linear-gradient(145deg, #121212, #1f1f1f);
+      color: white;
+      padding: 2rem;
     }
     input[type="range"] {
-      width: 80%;
+      width: 300px;
+    }
+    canvas {
+      margin-top: 2rem;
+      background: #222;
+      border-radius: 10px;
+    }
+    button {
+      margin: 1rem;
+      padding: 0.8rem 1.5rem;
+      background: #00bcd4;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #0097a7;
     }
   </style>
 </head>
 <body>
-  <h1>🎧 8D Audio MP3 Tuner</h1>
-  <input type="file" id="audioFile" accept="audio/mp3,audio/mpeg" />
-  <div id="controls" style="display:none;">
-    <label>Bass
-      <input type="range" id="bass" min="0" max="2" value="1" step="0.01">
-    </label>
-    <label>Mid
-      <input type="range" id="mid" min="0" max="2" value="1" step="0.01">
-    </label>
-    <label>Treble
-      <input type="range" id="treble" min="0" max="2" value="1" step="0.01">
-    </label>
-    <label>Gain
-      <input type="range" id="gain" min="0" max="2" value="1" step="0.01">
-    </label>
-    <label>8D Speed (Rotation)
-      <input type="range" id="speed" min="0.1" max="5" value="1" step="0.1">
-    </label>
-  </div>
+
+  <h1>🎧 8D Audio + Auto Tuning 🎶</h1>
+
+  <input type="file" id="audioFile" accept="audio/mp3" />
+  <br><br>
+
+  <label>Bass</label><br>
+  <input type="range" id="bassSlider" min="0.5" max="2" step="0.01" value="1"><br>
+
+  <label>Mid</label><br>
+  <input type="range" id="midSlider" min="0.5" max="2" step="0.01" value="1"><br>
+
+  <label>Treble</label><br>
+  <input type="range" id="trebleSlider" min="0.5" max="2" step="0.01" value="1"><br><br>
+
+  <button id="autoTuneBtn">🎛️ Auto-Tune Lagu</button>
+
   <canvas id="visualizer" width="600" height="150"></canvas>
 
   <script>
-    const audioInput = document.getElementById('audioFile');
-    const canvas = document.getElementById('visualizer');
-    const ctx = canvas.getContext('2d');
+    const audioFile = document.getElementById('audioFile');
+    const bassSlider = document.getElementById('bassSlider');
+    const midSlider = document.getElementById('midSlider');
+    const trebleSlider = document.getElementById('trebleSlider');
+    const autoTuneBtn = document.getElementById('autoTuneBtn');
 
-    const bassSlider = document.getElementById('bass');
-    const midSlider = document.getElementById('mid');
-    const trebleSlider = document.getElementById('treble');
-    const gainSlider = document.getElementById('gain');
-    const speedSlider = document.getElementById('speed');
-    const controls = document.getElementById('controls');
+    let audioContext, source, analyser;
+    let bassFilter, midFilter, trebleFilter, panner;
 
-    let audioCtx, source, analyser;
-    let filters = {}, gainNode, panner;
-    let panAngle = 0;
-    let panSpeed = 1;
-    let audioBufferSource;
-
-    function createFilter(freq) {
-      const f = audioCtx.createBiquadFilter();
-      f.type = 'peaking';
-      f.frequency.value = freq;
-      f.Q.value = 1;
-      f.gain.value = 0;
-      return f;
-    }
-
-    function drawVisualizer() {
-      requestAnimationFrame(drawVisualizer);
-      const bufferLength = analyser.fftSize;
-      const dataArray = new Uint8Array(bufferLength);
-      analyser.getByteTimeDomainData(dataArray);
-
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "#00ffcc";
-      ctx.beginPath();
-
-      const sliceWidth = canvas.width / bufferLength;
-      let x = 0;
-
-      for (let i = 0; i < bufferLength; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = (v * canvas.height) / 2;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        x += sliceWidth;
-      }
-
-      ctx.lineTo(canvas.width, canvas.height / 2);
-      ctx.stroke();
-    }
-
-    function updateFilters() {
-      filters.bass.gain.value = parseFloat(bassSlider.value) * 10 - 10;
-      filters.mid.gain.value = parseFloat(midSlider.value) * 10 - 10;
-      filters.treble.gain.value = parseFloat(trebleSlider.value) * 10 - 10;
-      gainNode.gain.value = parseFloat(gainSlider.value);
-      panSpeed = parseFloat(speedSlider.value);
-    }
-
-    function start8DAudioRotation() {
-      setInterval(() => {
-        panAngle += 0.01 * panSpeed;
-        const x = Math.sin(panAngle);
-        const z = Math.cos(panAngle);
-        panner.setPosition(x, 0, z);
-      }, 16); // ~60fps
-    }
-
-    audioInput.addEventListener('change', async function () {
+    audioFile.addEventListener('change', function () {
       const file = this.files[0];
       if (!file) return;
 
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        if (audioContext) audioContext.close(); // reset if already exists
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        audioContext.decodeAudioData(e.target.result, function (buffer) {
+          source = audioContext.createBufferSource();
+          source.buffer = buffer;
 
-      const arrayBuffer = await file.arrayBuffer();
-      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+          // EQ filters
+          bassFilter = audioContext.createBiquadFilter();
+          bassFilter.type = 'lowshelf';
+          bassFilter.frequency.value = 200;
 
-      if (audioBufferSource) {
-        audioBufferSource.stop();
-      }
+          midFilter = audioContext.createBiquadFilter();
+          midFilter.type = 'peaking';
+          midFilter.frequency.value = 1000;
+          midFilter.Q.value = 1;
 
-      audioBufferSource = audioCtx.createBufferSource();
-      audioBufferSource.buffer = audioBuffer;
+          trebleFilter = audioContext.createBiquadFilter();
+          trebleFilter.type = 'highshelf';
+          trebleFilter.frequency.value = 3000;
 
-      filters.bass = createFilter(100);
-      filters.mid = createFilter(1000);
-      filters.treble = createFilter(5000);
-      gainNode = audioCtx.createGain();
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 2048;
+          // 8D Effect (Auto Panning)
+          panner = audioContext.createStereoPanner();
 
-      panner = audioCtx.createPanner();
-      panner.panningModel = 'HRTF';
-      panner.setPosition(0, 0, 1);
+          // Visualizer
+          analyser = audioContext.createAnalyser();
+          analyser.fftSize = 2048;
 
-      // Connect the nodes
-      audioBufferSource
-        .connect(filters.bass)
-        .connect(filters.mid)
-        .connect(filters.treble)
-        .connect(gainNode)
-        .connect(panner)
-        .connect(analyser)
-        .connect(audioCtx.destination);
+          // Connect nodes
+          source.connect(bassFilter);
+          bassFilter.connect(midFilter);
+          midFilter.connect(trebleFilter);
+          trebleFilter.connect(panner);
+          panner.connect(analyser);
+          analyser.connect(audioContext.destination);
 
-      controls.style.display = 'block';
-      updateFilters();
-      drawVisualizer();
-      start8DAudioRotation();
-      audioBufferSource.start();
+          source.start(0);
+          updateFilters();
+          visualize();
+          animatePanning();
+        });
+      };
+      reader.readAsArrayBuffer(file);
     });
 
-    [bassSlider, midSlider, trebleSlider, gainSlider, speedSlider].forEach(slider => {
-      slider.addEventListener('input', updateFilters);
+    function updateFilters() {
+      bassFilter.gain.value = parseFloat(bassSlider.value);
+      midFilter.gain.value = parseFloat(midSlider.value);
+      trebleFilter.gain.value = parseFloat(trebleSlider.value);
+    }
+
+    bassSlider.addEventListener('input', updateFilters);
+    midSlider.addEventListener('input', updateFilters);
+    trebleSlider.addEventListener('input', updateFilters);
+
+    function visualize() {
+      const canvas = document.getElementById('visualizer');
+      const ctx = canvas.getContext('2d');
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      function draw() {
+        requestAnimationFrame(draw);
+        analyser.getByteFrequencyData(dataArray);
+
+        ctx.fillStyle = '#111';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const barWidth = (canvas.width / bufferLength) * 2.5;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+          const barHeight = dataArray[i] / 2;
+          ctx.fillStyle = `rgb(${barHeight + 100},50,200)`;
+          ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+          x += barWidth + 1;
+        }
+      }
+      draw();
+    }
+
+    function animatePanning() {
+      let angle = 0;
+      function panLoop() {
+        angle += 0.01;
+        panner.pan.value = Math.sin(angle); // 8D sound effect
+        requestAnimationFrame(panLoop);
+      }
+      panLoop();
+    }
+
+    autoTuneBtn.addEventListener('click', () => {
+      if (!analyser) return;
+
+      const freqData = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(freqData);
+
+      const bassRange = freqData.slice(0, 100);
+      const midRange = freqData.slice(100, 1000);
+      const trebleRange = freqData.slice(1000);
+
+      const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+
+      const bassAvg = avg(bassRange);
+      const midAvg = avg(midRange);
+      const trebleAvg = avg(trebleRange);
+
+      const bassBoost = Math.min(2, Math.max(0.8, 1.5 - bassAvg / 128));
+      const midBoost = Math.min(2, Math.max(0.7, 1.2 - midAvg / 256));
+      const trebleBoost = Math.min(2, Math.max(0.7, 1.4 - trebleAvg / 256));
+
+      bassSlider.value = bassBoost.toFixed(2);
+      midSlider.value = midBoost.toFixed(2);
+      trebleSlider.value = trebleBoost.toFixed(2);
+
+      updateFilters();
+
+      alert("✅ Lagu sudah di-tuning otomatis!");
     });
   </script>
 </body>
