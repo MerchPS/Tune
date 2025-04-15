@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>🎧 Advanced Audio Player</title>
+  <title>🎧 Ultimate Audio Player</title>
   <style>
     body {
       font-family: sans-serif;
@@ -12,21 +12,25 @@
       padding: 2rem;
       position: relative;
       overflow: hidden;
+      height: 100vh;
+      margin: 0;
     }
 
     input[type="range"] {
       width: 300px;
+      margin: 5px 0;
     }
 
-    canvas {
-      margin-top: 2rem;
-      background: #111;
-      border-radius: 10px;
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: -1;
-      filter: blur(3px);
+    .controls-container {
+      background: rgba(0, 0, 0, 0.7);
+      padding: 20px;
+      border-radius: 15px;
+      max-width: 600px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 10;
+      backdrop-filter: blur(5px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
     }
 
     button {
@@ -38,24 +42,23 @@
       border-radius: 8px;
       cursor: pointer;
       transition: 0.3s;
+      font-weight: bold;
     }
 
     button:hover {
       background: #0097a7;
+      transform: translateY(-2px);
     }
 
     .slider-label {
       margin-top: 1rem;
       display: block;
+      font-weight: bold;
     }
 
     .light-mode {
       background-color: #f0f0f0;
       color: #222;
-    }
-
-    .light-mode canvas {
-      background: #ddd;
     }
 
     .light-mode button {
@@ -66,38 +69,100 @@
     .light-mode button:hover {
       background: #004d40;
     }
+
+    #visualizer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+    }
+
+    #spotlight {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: -1;
+      background: radial-gradient(
+        circle at center,
+        rgba(0, 188, 212, 0.1) 0%,
+        rgba(0, 0, 0, 0.9) 70%
+      );
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+
+    h1 {
+      text-shadow: 0 0 10px rgba(0, 188, 212, 0.7);
+      margin-bottom: 1.5rem;
+    }
+
+    .file-input-container {
+      margin-bottom: 1rem;
+    }
+
+    #audioFile {
+      display: none;
+    }
+
+    .custom-file-upload {
+      border: 2px dashed #00bcd4;
+      display: inline-block;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.3s;
+      font-weight: bold;
+    }
+
+    .custom-file-upload:hover {
+      background: rgba(0, 188, 212, 0.1);
+    }
   </style>
 </head>
 <body>
 
-  <h1>🎧 Advanced Audio Player 🎶</h1>
+  <div class="controls-container">
+    <h1>🎧 Ultimate Audio Player 🎶</h1>
 
-  <input type="file" id="audioFile" accept="audio/mp3" />
-  <br><br>
+    <div class="file-input-container">
+      <label for="audioFile" class="custom-file-upload">
+        📁 Choose Audio File
+      </label>
+      <input type="file" id="audioFile" accept="audio/*" />
+    </div>
 
-  <label class="slider-label">Volume</label>
-  <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.7"><br>
+    <label class="slider-label">Volume</label>
+    <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.7"><br>
 
-  <label class="slider-label">Playback Speed</label>
-  <input type="range" id="speedSlider" min="0.5" max="2" step="0.1" value="1"><br>
+    <label class="slider-label">Playback Speed</label>
+    <input type="range" id="speedSlider" min="0.5" max="2" step="0.1" value="1"><br>
 
-  <label class="slider-label">Bass</label>
-  <input type="range" id="bassSlider" min="0.5" max="2" step="0.01" value="1"><br>
+    <label class="slider-label">Bass</label>
+    <input type="range" id="bassSlider" min="0.5" max="2" step="0.01" value="1"><br>
 
-  <label class="slider-label">Mid</label>
-  <input type="range" id="midSlider" min="0.5" max="2" step="0.01" value="1"><br>
+    <label class="slider-label">Mid</label>
+    <input type="range" id="midSlider" min="0.5" max="2" step="0.01" value="1"><br>
 
-  <label class="slider-label">Treble</label>
-  <input type="range" id="trebleSlider" min="0.5" max="2" step="0.01" value="1"><br><br>
+    <label class="slider-label">Treble</label>
+    <input type="range" id="trebleSlider" min="0.5" max="2" step="0.01" value="1"><br><br>
 
-  <button id="toggle8D">🔁 8D Audio: ON</button>
-  <button id="toggleAutoTune">🎚️ Auto-Tune: ON</button>
-  <button id="toggleReverb">🌊 Reverb: OFF</button>
-  <button id="toggleTheme">🌗 Dark/Light Mode</button>
+    <button id="toggle8D">🔁 8D Audio: ON</button>
+    <button id="toggleAutoTune">🎚️ Auto-Tune: ON</button>
+    <button id="toggleReverb">🌊 Reverb: OFF</button>
+    <button id="toggleTheme">🌗 Dark/Light Mode</button>
+    <button id="toggleParticles">✨ Particles: ON</button>
+  </div>
 
-  <canvas id="visualizer" width="400" height="400"></canvas>
+  <canvas id="visualizer"></canvas>
+  <div id="spotlight"></div>
 
   <script>
+    // DOM Elements
     const audioFile = document.getElementById('audioFile');
     const volumeSlider = document.getElementById('volumeSlider');
     const speedSlider = document.getElementById('speedSlider');
@@ -108,35 +173,58 @@
     const toggleAutoTune = document.getElementById('toggleAutoTune');
     const toggleReverb = document.getElementById('toggleReverb');
     const toggleTheme = document.getElementById('toggleTheme');
+    const toggleParticles = document.getElementById('toggleParticles');
+    const visualizer = document.getElementById('visualizer');
+    const spotlight = document.getElementById('spotlight');
 
+    // Audio Context Variables
     let audioContext, source, analyser, gainNode;
     let bassFilter, midFilter, trebleFilter, panner, convolver;
     let is8DActive = true;
     let isAutoTuneActive = true;
     let isReverbActive = false;
+    let isParticlesActive = true;
     let autoTuneInterval;
     let panAngle = 0;
     let audioBuffer;
     let particles = [];
+    let bassHistory = [];
+    const bassHistorySize = 10;
+    let lastBassValue = 0;
+    let spotlightAngle = 0;
 
-    audioFile.addEventListener('change', function () {
+    // Canvas Setup
+    visualizer.width = window.innerWidth;
+    visualizer.height = window.innerHeight;
+    const ctx = visualizer.getContext('2d');
+
+    // Resize handler
+    window.addEventListener('resize', () => {
+      visualizer.width = window.innerWidth;
+      visualizer.height = window.innerHeight;
+    });
+
+    // File Input Handling
+    audioFile.addEventListener('change', function() {
       const file = this.files[0];
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = function (e) {
+      reader.onload = function(e) {
         if (audioContext) audioContext.close();
 
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-        audioContext.decodeAudioData(e.target.result, function (buffer) {
+        audioContext.decodeAudioData(e.target.result, function(buffer) {
           audioBuffer = buffer;
           playAudio();
+          spotlight.style.opacity = '1';
         });
       };
       reader.readAsArrayBuffer(file);
     });
 
+    // Play Audio Function
     function playAudio() {
       if (!audioBuffer) return;
 
@@ -149,18 +237,22 @@
       gainNode = audioContext.createGain();
       gainNode.gain.value = parseFloat(volumeSlider.value);
 
+      // Create EQ filters
       bassFilter = audioContext.createBiquadFilter();
       bassFilter.type = 'lowshelf';
       bassFilter.frequency.value = 200;
+      bassFilter.gain.value = parseFloat(bassSlider.value);
 
       midFilter = audioContext.createBiquadFilter();
       midFilter.type = 'peaking';
       midFilter.frequency.value = 1000;
       midFilter.Q.value = 1;
+      midFilter.gain.value = parseFloat(midSlider.value);
 
       trebleFilter = audioContext.createBiquadFilter();
       trebleFilter.type = 'highshelf';
       trebleFilter.frequency.value = 3000;
+      trebleFilter.gain.value = parseFloat(trebleSlider.value);
 
       panner = audioContext.createStereoPanner();
 
@@ -170,7 +262,7 @@
       convolver = audioContext.createConvolver();
       convolver.buffer = createImpulseResponse(audioContext);
 
-      // Chain setup
+      // Audio Node Connections
       source.connect(bassFilter);
       bassFilter.connect(midFilter);
       midFilter.connect(trebleFilter);
@@ -188,18 +280,19 @@
       analyser.connect(audioContext.destination);
 
       source.start(0);
-      updateFilters();
       visualize();
       loopPanning();
       startAutoTune();
     }
 
+    // Update EQ Filters
     function updateFilters() {
-      bassFilter.gain.value = parseFloat(bassSlider.value);
-      midFilter.gain.value = parseFloat(midSlider.value);
-      trebleFilter.gain.value = parseFloat(trebleSlider.value);
+      if (bassFilter) bassFilter.gain.value = parseFloat(bassSlider.value);
+      if (midFilter) midFilter.gain.value = parseFloat(midSlider.value);
+      if (trebleFilter) trebleFilter.gain.value = parseFloat(trebleSlider.value);
     }
 
+    // Event Listeners for Controls
     volumeSlider.addEventListener('input', () => {
       if (gainNode) gainNode.gain.value = parseFloat(volumeSlider.value);
     });
@@ -227,17 +320,23 @@
     toggleReverb.addEventListener('click', () => {
       isReverbActive = !isReverbActive;
       toggleReverb.textContent = `🌊 Reverb: ${isReverbActive ? 'ON' : 'OFF'}`;
-      playAudio(); // Reload to apply
+      playAudio();
     });
 
     toggleTheme.addEventListener('click', () => {
       document.body.classList.toggle('light-mode');
     });
 
+    toggleParticles.addEventListener('click', () => {
+      isParticlesActive = !isParticlesActive;
+      toggleParticles.textContent = `✨ Particles: ${isParticlesActive ? 'ON' : 'OFF'}`;
+    });
+
+    // Auto-Tune Effect
     function startAutoTune() {
       clearInterval(autoTuneInterval);
       autoTuneInterval = setInterval(() => {
-        if (!isAutoTuneActive) return;
+        if (!isAutoTuneActive || !analyser) return;
 
         const freqData = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(freqData);
@@ -254,12 +353,13 @@
       }, 800);
     }
 
+    // 8D Audio Panning Effect
     function loopPanning() {
       function panLoop() {
-        if (is8DActive) {
+        if (is8DActive && panner) {
           panAngle += 0.02;
           panner.pan.value = Math.sin(panAngle);
-        } else {
+        } else if (panner) {
           panner.pan.value = 0;
         }
         requestAnimationFrame(panLoop);
@@ -267,71 +367,139 @@
       panLoop();
     }
 
+    // Visualization Function with Bass-Reactive Particles
     function visualize() {
-      const canvas = document.getElementById('visualizer');
-      const ctx = canvas.getContext('2d');
+      const bufferLength = analyser ? analyser.frequencyBinCount : 0;
+      const dataArray = new Uint8Array(bufferLength);
 
       function draw() {
-        const freqData = new Uint8Array(analyser.frequencyBinCount);
-        analyser.getByteFrequencyData(freqData);
+        requestAnimationFrame(draw);
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (!analyser) return;
 
-        const maxFreq = Math.max(...freqData);
-        const particleCount = Math.floor(maxFreq / 10) + 10;
-        createParticles(particleCount);
+        analyser.getByteFrequencyData(dataArray);
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.beginPath();
-        ctx.arc(canvas.width / 2, canvas.height / 2, 60, 0, Math.PI * 2);
-        ctx.fill();
+        // Clear canvas with fade effect
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.fillRect(0, 0, visualizer.width, visualizer.height);
 
-        for (const p of particles) {
-          p.update();
-          p.draw(ctx);
+        // Calculate bass level (average of lower frequencies)
+        const bassStart = 0;
+        const bassEnd = Math.floor(bufferLength * 0.2);
+        let bassSum = 0;
+        for (let i = bassStart; i < bassEnd; i++) {
+          bassSum += dataArray[i];
+        }
+        const bassLevel = bassSum / (bassEnd - bassStart);
+        
+        // Smooth bass level
+        bassHistory.push(bassLevel);
+        if (bassHistory.length > bassHistorySize) {
+          bassHistory.shift();
+        }
+        const smoothedBass = bassHistory.reduce((a, b) => a + b, 0) / bassHistory.length;
+        lastBassValue = smoothedBass;
+
+        // Create particles based on bass level
+        if (isParticlesActive && smoothedBass > 50) {
+          const particleCount = Math.floor(smoothedBass / 30);
+          createParticles(particleCount, smoothedBass);
         }
 
-        particles = particles.filter(p => !p.isOutOfBounds());
-        requestAnimationFrame(draw);
+        // Draw particles
+        for (let i = 0; i < particles.length; i++) {
+          particles[i].update();
+          particles[i].draw(ctx);
+          
+          // Remove particles that are out of bounds or too small
+          if (particles[i].isOutOfBounds() || particles[i].size < 0.1) {
+            particles.splice(i, 1);
+            i--;
+          }
+        }
+
+        // Rotate spotlight
+        spotlightAngle += 0.002;
+        const x = (Math.cos(spotlightAngle) * 0.5 + 0.5) * 100;
+        const y = (Math.sin(spotlightAngle) * 0.5 + 0.5) * 100;
+        spotlight.style.background = `
+          radial-gradient(
+            circle at ${x}% ${y}%,
+            rgba(0, 188, 212, ${smoothedBass / 255 * 0.3}) 0%,
+            rgba(0, 0, 0, 0.9) 70%
+          )`;
       }
 
       draw();
     }
 
-    function createParticles(count) {
+    // Create Bass-Reactive Particles
+    function createParticles(count, bassLevel) {
+      const centerX = visualizer.width / 2;
+      const centerY = visualizer.height / 2;
+      const maxDistance = Math.min(visualizer.width, visualizer.height) * 0.4;
+      
       for (let i = 0; i < count; i++) {
-        const particle = new Particle(canvas.width / 2, canvas.height / 2, Math.random() * 360, Math.random() * 2);
-        particles.push(particle);
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.random() * maxDistance * (bassLevel / 255);
+        const speed = 1 + Math.random() * 3;
+        const size = 2 + Math.random() * 5 * (bassLevel / 255);
+        
+        const x = centerX + Math.cos(angle) * distance;
+        const y = centerY + Math.sin(angle) * distance;
+        
+        particles.push(new Particle(
+          x, y,
+          angle + Math.PI + (Math.random() - 0.5) * 0.5, // Point back toward center with some variation
+          speed,
+          size,
+          bassLevel
+        ));
       }
     }
 
+    // Particle Class
     class Particle {
-      constructor(x, y, angle, speed) {
+      constructor(x, y, angle, speed, size, bassLevel) {
         this.x = x;
         this.y = y;
         this.angle = angle;
-        this.speed = speed;
-        this.size = Math.random() * 3 + 1;
+        this.speed = speed * (0.5 + bassLevel / 510); // Speed affected by bass
+        this.size = size;
+        this.maxSize = size;
+        this.opacity = 0.7 + Math.random() * 0.3;
+        this.hue = 180 + (Math.random() * 60 - 30); // Blue-cyan color range
       }
 
       update() {
         this.x += Math.cos(this.angle) * this.speed;
         this.y += Math.sin(this.angle) * this.speed;
-        this.size *= 0.98;  // Gradually shrink particle
+        this.size = this.maxSize * (0.9 + 0.1 * Math.sin(Date.now() * 0.01)); // Pulsing effect
       }
 
       draw(ctx) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        const gradient = ctx.createRadialGradient(
+          this.x, this.y, 0,
+          this.x, this.y, this.size
+        );
+        gradient.addColorStop(0, `hsla(${this.hue}, 100%, 70%, ${this.opacity})`);
+        gradient.addColorStop(1, `hsla(${this.hue}, 100%, 50%, 0)`);
+        
+        ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
       }
 
       isOutOfBounds() {
-        return this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height;
+        return this.x < -this.size || 
+               this.x > visualizer.width + this.size || 
+               this.y < -this.size || 
+               this.y > visualizer.height + this.size;
       }
     }
 
+    // Create Reverb Impulse Response
     function createImpulseResponse(audioContext) {
       const length = audioContext.sampleRate * 2;
       const impulse = audioContext.createBuffer(2, length, audioContext.sampleRate);
@@ -339,12 +507,26 @@
       const right = impulse.getChannelData(1);
 
       for (let i = 0; i < length; i++) {
-        left[i] = (Math.random() * 2 - 1) * 0.2;
-        right[i] = (Math.random() * 2 - 1) * 0.2;
+        const n = i / length;
+        left[i] = (Math.random() * 2 - 1) * Math.pow(1 - n, 3) * 0.2;
+        right[i] = (Math.random() * 2 - 1) * Math.pow(1 - n, 3) * 0.2;
       }
 
       return impulse;
     }
+
+    // Mouse move for spotlight (optional)
+    document.addEventListener('mousemove', (e) => {
+      if (!spotlight) return;
+      const x = (e.clientX / window.innerWidth) * 100;
+      const y = (e.clientY / window.innerHeight) * 100;
+      spotlight.style.background = `
+        radial-gradient(
+          circle at ${x}% ${y}%,
+          rgba(0, 188, 212, ${lastBassValue / 255 * 0.3}) 0%,
+          rgba(0, 0, 0, 0.9) 70%
+        )`;
+    });
   </script>
 </body>
 </html>
