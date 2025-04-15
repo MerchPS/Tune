@@ -1,373 +1,155 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time Audio Tune Studio</title>
-    <style>
-        :root {
-            --primary: #6c5ce7;
-            --dark: #2d3436;
-            --light: #f5f6fa;
-            --accent: #fd79a8;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background: linear-gradient(135deg, var(--dark), #1e272e);
-            color: var(--light);
-            min-height: 100vh;
-            padding: 2rem;
-        }
-        
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: rgba(45, 52, 54, 0.7);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 2rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-        
-        h1 {
-            text-align: center;
-            margin-bottom: 1.5rem;
-            color: var(--primary);
-            font-weight: 600;
-        }
-        
-        .upload-area {
-            border: 2px dashed var(--primary);
-            border-radius: 10px;
-            padding: 2rem;
-            text-align: center;
-            margin-bottom: 2rem;
-            transition: all 0.3s;
-            cursor: pointer;
-        }
-        
-        .upload-area:hover {
-            background: rgba(108, 92, 231, 0.1);
-        }
-        
-        .upload-area i {
-            font-size: 3rem;
-            color: var(--primary);
-            margin-bottom: 1rem;
-        }
-        
-        .controls {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        
-        .control-group {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 1rem;
-            border-radius: 10px;
-        }
-        
-        .control-group h3 {
-            margin-bottom: 1rem;
-            color: var(--accent);
-        }
-        
-        .control {
-            margin-bottom: 1rem;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-        }
-        
-        input[type="range"] {
-            width: 100%;
-            height: 8px;
-            -webkit-appearance: none;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 5px;
-            outline: none;
-        }
-        
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
-            background: var(--primary);
-            border-radius: 50%;
-            cursor: pointer;
-        }
-        
-        .player-controls {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-            margin-top: 2rem;
-        }
-        
-        button {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 0.8rem 1.5rem;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        button:hover {
-            background: var(--accent);
-            transform: translateY(-2px);
-        }
-        
-        button i {
-            font-size: 1.2rem;
-        }
-        
-        .hidden {
-            display: none;
-        }
-        
-        #waveform {
-            width: 100%;
-            height: 100px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 5px;
-            margin-bottom: 1rem;
-        }
-        
-        .file-info {
-            margin-top: 1rem;
-            font-size: 0.9rem;
-            color: rgba(255, 255, 255, 0.7);
-        }
-        
-        .value-display {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.6);
-        }
-        
-        @media (max-width: 600px) {
-            .controls {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Real-Time Audio Tuning</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #fff;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    canvas {
+      border: 1px solid #fff;
+      width: 100%;
+      height: 150px;
+      margin-top: 20px;
+    }
+    .controls {
+      margin-top: 20px;
+    }
+    .controls label {
+      display: block;
+      margin-top: 10px;
+    }
+    input[type="range"] {
+      width: 80%;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1><i class="fas fa-music"></i> Real-Time Audio Tune Studio</h1>
-        
-        <div id="uploadArea" class="upload-area">
-            <i class="fas fa-cloud-upload-alt"></i>
-            <h3>Upload Audio File</h3>
-            <p>Drag & drop your audio file here or click to browse</p>
-            <input type="file" id="fileInput" accept="audio/*" class="hidden">
-            <div id="fileInfo" class="file-info hidden"></div>
-        </div>
-        
-        <div id="controls" class="hidden">
-            <div id="waveform"></div>
-            
-            <div class="controls">
-                <div class="control-group">
-                    <h3><i class="fas fa-sliders-h"></i> Equalizer</h3>
-                    
-                    <div class="control">
-                        <label for="bass">Bass <span id="bassValue">0dB</span></label>
-                        <input type="range" id="bass" min="-20" max="20" value="0" step="0.1">
-                        <div class="value-display"><span>-20dB</span><span>+20dB</span></div>
-                    </div>
-                    
-                    <div class="control">
-                        <label for="treble">Treble <span id="trebleValue">0dB</span></label>
-                        <input type="range" id="treble" min="-20" max="20" value="0" step="0.1">
-                        <div class="value-display"><span>-20dB</span><span>+20dB</span></div>
-                    </div>
-                    
-                    <div class="control">
-                        <label for="mid">Mid <span id="midValue">0dB</span></label>
-                        <input type="range" id="mid" min="-20" max="20" value="0" step="0.1">
-                        <div class="value-display"><span>-20dB</span><span>+20dB</span></div>
-                    </div>
-                </div>
-                
-                <div class="control-group">
-                    <h3><i class="fas fa-magic"></i> Effects</h3>
-                    
-                    <div class="control">
-                        <label for="autotune">Auto-Tune <span id="autotuneValue">0%</span></label>
-                        <input type="range" id="autotune" min="0" max="100" value="0">
-                        <div class="value-display"><span>0%</span><span>100%</span></div>
-                    </div>
-                    
-                    <div class="control">
-                        <label for="reverb">Reverb <span id="reverbValue">0%</span></label>
-                        <input type="range" id="reverb" min="0" max="100" value="0">
-                        <div class="value-display"><span>0%</span><span>100%</span></div>
-                    </div>
-                    
-                    <div class="control">
-                        <label for="delay">Delay <span id="delayValue">0%</span></label>
-                        <input type="range" id="delay" min="0" max="100" value="0">
-                        <div class="value-display"><span>0%</span><span>100%</span></div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="player-controls">
-                <button id="playBtn"><i class="fas fa-play"></i> Play</button>
-                <button id="pauseBtn"><i class="fas fa-pause"></i> Pause</button>
-                <button id="stopBtn"><i class="fas fa-stop"></i> Stop</button>
-                <button id="downloadBtn"><i class="fas fa-download"></i> Download</button>
-            </div>
-        </div>
-    </div>
+  <h1>🎧 Real-Time Audio Tuning</h1>
+  <button id="startBtn">Start Tuning</button>
 
-    <script src="https://cdn.jsdelivr.net/npm/wavesurfer.js@6.6"></script>
-   <script>
-    let startTime = 0;
-    let pauseTime = 0;
-    let isLoaded = false;
-    let bufferSource;
+  <div class="controls" id="eqControls" style="display:none;">
+    <label>Bass (Low Frequency)
+      <input type="range" id="bass" min="0" max="2" value="1" step="0.01">
+    </label>
+    <label>Mid (Mid Frequency)
+      <input type="range" id="mid" min="0" max="2" value="1" step="0.01">
+    </label>
+    <label>Treble (High Frequency)
+      <input type="range" id="treble" min="0" max="2" value="1" step="0.01">
+    </label>
+    <label>Gain (Volume)
+      <input type="range" id="gain" min="0" max="2" value="1" step="0.01">
+    </label>
+  </div>
 
-    // File handling
-    uploadArea.addEventListener('click', () => fileInput.click());
+  <canvas id="visualizer" width="600" height="150"></canvas>
 
-    fileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            fileInfo.textContent = `Loaded: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
-            fileInfo.classList.remove('hidden');
-            controls.classList.remove('hidden');
+  <script>
+    const startBtn = document.getElementById('startBtn');
+    const bassControl = document.getElementById('bass');
+    const midControl = document.getElementById('mid');
+    const trebleControl = document.getElementById('treble');
+    const gainControl = document.getElementById('gain');
+    const eqControls = document.getElementById('eqControls');
+    const canvas = document.getElementById('visualizer');
+    const canvasCtx = canvas.getContext('2d');
 
-            const arrayBuffer = await file.arrayBuffer();
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            
-            loadWavesurfer(file);
-            createAudioNodes();
-            isLoaded = true;
-        }
-    });
+    let audioContext, analyser, source, gainNode;
+    let filters = {};
 
-    function loadWavesurfer(file) {
-        const blobURL = URL.createObjectURL(file);
-        wavesurfer.load(blobURL);
+    function createFilter(frequency) {
+      const filter = audioContext.createBiquadFilter();
+      filter.type = "peaking";
+      filter.frequency.value = frequency;
+      filter.Q.value = 1;
+      filter.gain.value = 0;
+      return filter;
     }
 
-    function createAudioNodes() {
-        bassNode = audioContext.createBiquadFilter();
-        bassNode.type = "lowshelf";
-        bassNode.frequency.value = 200;
+    function drawVisualizer() {
+      requestAnimationFrame(drawVisualizer);
 
-        midNode = audioContext.createBiquadFilter();
-        midNode.type = "peaking";
-        midNode.frequency.value = 1000;
+      const bufferLength = analyser.fftSize;
+      const dataArray = new Uint8Array(bufferLength);
+      analyser.getByteTimeDomainData(dataArray);
 
-        trebleNode = audioContext.createBiquadFilter();
-        trebleNode.type = "highshelf";
-        trebleNode.frequency.value = 3000;
+      canvasCtx.fillStyle = "#121212";
+      canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+      canvasCtx.lineWidth = 2;
+      canvasCtx.strokeStyle = "#00ffcc";
+      canvasCtx.beginPath();
+
+      const sliceWidth = canvas.width / bufferLength;
+      let x = 0;
+
+      for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = (v * canvas.height) / 2;
+
+        if (i === 0) {
+          canvasCtx.moveTo(x, y);
+        } else {
+          canvasCtx.lineTo(x, y);
+        }
+
+        x += sliceWidth;
+      }
+
+      canvasCtx.lineTo(canvas.width, canvas.height / 2);
+      canvasCtx.stroke();
+    }
+
+    startBtn.addEventListener('click', async () => {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        source = audioContext.createMediaStreamSource(stream);
+
+        filters.bass = createFilter(100);
+        filters.mid = createFilter(1000);
+        filters.treble = createFilter(5000);
 
         gainNode = audioContext.createGain();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
 
-        destinationNode = audioContext.destination;
+        // Rantai Audio: Mic -> Bass -> Mid -> Treble -> Gain -> Analyser -> Output
+        source
+          .connect(filters.bass)
+          .connect(filters.mid)
+          .connect(filters.treble)
+          .connect(gainNode)
+          .connect(analyser)
+          .connect(audioContext.destination);
+
+        eqControls.style.display = 'block';
+        drawVisualizer();
+      }
+    });
+
+    function updateFilters() {
+      filters.bass.gain.value = parseFloat(bassControl.value) * 10 - 10;
+      filters.mid.gain.value = parseFloat(midControl.value) * 10 - 10;
+      filters.treble.gain.value = parseFloat(trebleControl.value) * 10 - 10;
+      gainNode.gain.value = parseFloat(gainControl.value);
     }
 
-    function connectNodes() {
-        bufferSource = audioContext.createBufferSource();
-        bufferSource.buffer = audioBuffer;
-
-        bufferSource.connect(bassNode);
-        bassNode.connect(midNode);
-        midNode.connect(trebleNode);
-        trebleNode.connect(gainNode);
-        gainNode.connect(destinationNode);
-    }
-
-    function playAudio() {
-        if (!isLoaded) return;
-
-        connectNodes();
-        bufferSource.start(0, pauseTime);
-        startTime = audioContext.currentTime - pauseTime;
-        isPlaying = true;
-        wavesurfer.play(pauseTime);
-    }
-
-    function pauseAudio() {
-        if (!isPlaying) return;
-
-        bufferSource.stop();
-        pauseTime = audioContext.currentTime - startTime;
-        isPlaying = false;
-        wavesurfer.pause();
-    }
-
-    function stopAudio() {
-        if (!isPlaying) return;
-
-        bufferSource.stop();
-        pauseTime = 0;
-        isPlaying = false;
-        wavesurfer.stop();
-    }
-
-    playBtn.addEventListener('click', playAudio);
-    pauseBtn.addEventListener('click', pauseAudio);
-    stopBtn.addEventListener('click', stopAudio);
-
-    // Equalizer control
-    document.getElementById('bass').addEventListener('input', e => {
-        bassNode.gain.value = e.target.value;
-        bassValue.textContent = `${e.target.value}dB`;
-    });
-
-    document.getElementById('treble').addEventListener('input', e => {
-        trebleNode.gain.value = e.target.value;
-        trebleValue.textContent = `${e.target.value}dB`;
-    });
-
-    document.getElementById('mid').addEventListener('input', e => {
-        midNode.gain.value = e.target.value;
-        midValue.textContent = `${e.target.value}dB`;
-    });
-
-    // Placeholder for effects (real implementations would require more DSP)
-    document.getElementById('autotune').addEventListener('input', e => {
-        autotuneValue.textContent = `${e.target.value}%`;
-    });
-
-    document.getElementById('reverb').addEventListener('input', e => {
-        reverbValue.textContent = `${e.target.value}%`;
-    });
-
-    document.getElementById('delay').addEventListener('input', e => {
-        delayValue.textContent = `${e.target.value}%`;
-    });
-
-    // Optional: Download (stub)
-    downloadBtn.addEventListener('click', () => {
-        alert("Download functionality not implemented yet.");
-    });
-</script>
+    bassControl.addEventListener('input', updateFilters);
+    midControl.addEventListener('input', updateFilters);
+    trebleControl.addEventListener('input', updateFilters);
+    gainControl.addEventListener('input', updateFilters);
+  </script>
 </body>
 </html>
