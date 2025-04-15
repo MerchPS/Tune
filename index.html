@@ -2,14 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>8D Audio Tuner 🎧</title>
+  <title>🎧 8D Audio + Auto Tuner</title>
   <style>
     body {
       font-family: sans-serif;
-      text-align: center;
-      background: linear-gradient(145deg, #121212, #1f1f1f);
+      background: linear-gradient(145deg, #111, #222);
       color: white;
+      text-align: center;
       padding: 2rem;
     }
     input[type="range"] {
@@ -17,12 +16,12 @@
     }
     canvas {
       margin-top: 2rem;
-      background: #222;
+      background: #111;
       border-radius: 10px;
     }
     button {
       margin: 1rem;
-      padding: 0.8rem 1.5rem;
+      padding: 10px 20px;
       background: #00bcd4;
       color: white;
       border: none;
@@ -37,7 +36,7 @@
 </head>
 <body>
 
-  <h1>🎧 8D Audio + Auto Tuning 🎶</h1>
+  <h1>🎧 8D Audio + Auto Tune 🎶</h1>
 
   <input type="file" id="audioFile" accept="audio/mp3" />
   <br><br>
@@ -51,7 +50,7 @@
   <label>Treble</label><br>
   <input type="range" id="trebleSlider" min="0.5" max="2" step="0.01" value="1"><br><br>
 
-  <button id="autoTuneBtn">🎛️ Auto-Tune Lagu</button>
+  <button id="toggle8D">🔁 8D Audio: ON</button>
 
   <canvas id="visualizer" width="600" height="150"></canvas>
 
@@ -60,10 +59,13 @@
     const bassSlider = document.getElementById('bassSlider');
     const midSlider = document.getElementById('midSlider');
     const trebleSlider = document.getElementById('trebleSlider');
-    const autoTuneBtn = document.getElementById('autoTuneBtn');
+    const toggle8D = document.getElementById('toggle8D');
 
     let audioContext, source, analyser;
     let bassFilter, midFilter, trebleFilter, panner;
+    let is8DActive = true;
+    let autoTuneInterval;
+    let panAngle = 0;
 
     audioFile.addEventListener('change', function () {
       const file = this.files[0];
@@ -71,13 +73,13 @@
 
       const reader = new FileReader();
       reader.onload = function (e) {
-        if (audioContext) audioContext.close(); // reset if already exists
+        if (audioContext) audioContext.close();
+
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         audioContext.decodeAudioData(e.target.result, function (buffer) {
           source = audioContext.createBufferSource();
           source.buffer = buffer;
 
-          // EQ filters
           bassFilter = audioContext.createBiquadFilter();
           bassFilter.type = 'lowshelf';
           bassFilter.frequency.value = 200;
@@ -91,14 +93,11 @@
           trebleFilter.type = 'highshelf';
           trebleFilter.frequency.value = 3000;
 
-          // 8D Effect (Auto Panning)
           panner = audioContext.createStereoPanner();
 
-          // Visualizer
           analyser = audioContext.createAnalyser();
           analyser.fftSize = 2048;
 
-          // Connect nodes
           source.connect(bassFilter);
           bassFilter.connect(midFilter);
           midFilter.connect(trebleFilter);
@@ -109,7 +108,8 @@
           source.start(0);
           updateFilters();
           visualize();
-          animatePanning();
+          loopPanning();
+          startAutoTune();
         });
       };
       reader.readAsArrayBuffer(file);
@@ -151,44 +151,51 @@
       draw();
     }
 
-    function animatePanning() {
-      let angle = 0;
+    function loopPanning() {
       function panLoop() {
-        angle += 0.01;
-        panner.pan.value = Math.sin(angle); // 8D sound effect
+        if (is8DActive) {
+          panAngle += 0.01;
+          panner.pan.value = Math.sin(panAngle);
+        } else {
+          panner.pan.value = 0;
+        }
         requestAnimationFrame(panLoop);
       }
       panLoop();
     }
 
-    autoTuneBtn.addEventListener('click', () => {
-      if (!analyser) return;
-
-      const freqData = new Uint8Array(analyser.frequencyBinCount);
-      analyser.getByteFrequencyData(freqData);
-
-      const bassRange = freqData.slice(0, 100);
-      const midRange = freqData.slice(100, 1000);
-      const trebleRange = freqData.slice(1000);
-
-      const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
-
-      const bassAvg = avg(bassRange);
-      const midAvg = avg(midRange);
-      const trebleAvg = avg(trebleRange);
-
-      const bassBoost = Math.min(2, Math.max(0.8, 1.5 - bassAvg / 128));
-      const midBoost = Math.min(2, Math.max(0.7, 1.2 - midAvg / 256));
-      const trebleBoost = Math.min(2, Math.max(0.7, 1.4 - trebleAvg / 256));
-
-      bassSlider.value = bassBoost.toFixed(2);
-      midSlider.value = midBoost.toFixed(2);
-      trebleSlider.value = trebleBoost.toFixed(2);
-
-      updateFilters();
-
-      alert("✅ Lagu sudah di-tuning otomatis!");
+    toggle8D.addEventListener('click', () => {
+      is8DActive = !is8DActive;
+      toggle8D.textContent = `🔁 8D Audio: ${is8DActive ? 'ON' : 'OFF'}`;
     });
+
+    function startAutoTune() {
+      if (autoTuneInterval) clearInterval(autoTuneInterval);
+      autoTuneInterval = setInterval(() => {
+        const freqData = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(freqData);
+
+        const bassRange = freqData.slice(0, 100);
+        const midRange = freqData.slice(100, 1000);
+        const trebleRange = freqData.slice(1000);
+
+        const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+
+        const bassAvg = avg(bassRange);
+        const midAvg = avg(midRange);
+        const trebleAvg = avg(trebleRange);
+
+        const bassBoost = Math.min(2, Math.max(0.8, 1.5 - bassAvg / 128));
+        const midBoost = Math.min(2, Math.max(0.7, 1.2 - midAvg / 256));
+        const trebleBoost = Math.min(2, Math.max(0.7, 1.4 - trebleAvg / 256));
+
+        bassSlider.value = bassBoost.toFixed(2);
+        midSlider.value = midBoost.toFixed(2);
+        trebleSlider.value = trebleBoost.toFixed(2);
+
+        updateFilters();
+      }, 800); // Update every 800ms
+    }
   </script>
 </body>
 </html>
