@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Tune Studio</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --dark: #2d3436;
+            --light: #f5f6fa;
+            --accent: #fd79a8;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--dark), #1e272e);
+            color: var(--light);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(45, 52, 54, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .upload-area {
+            border: 2px dashed var(--primary);
+            border-radius: 10px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            background: rgba(108, 92, 231, 0.1);
+        }
+        
+        .upload-area i {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .control-group {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 10px;
+        }
+        
+        .control-group h3 {
+            margin-bottom: 1rem;
+            color: var(--accent);
+        }
+        
+        .control {
+            margin-bottom: 1rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .player-controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        button:hover {
+            background: var(--accent);
+            transform: translateY(-2px);
+        }
+        
+        button i {
+            font-size: 1.2rem;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        #waveform {
+            width: 100%;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+        
+        .file-info {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        @media (max-width: 600px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-music"></i> Audio Tune Studio</h1>
+        
+        <div id="uploadArea" class="upload-area">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <h3>Upload MP3 File</h3>
+            <p>Drag & drop your audio file here or click to browse</p>
+            <input type="file" id="fileInput" accept="audio/mp3" class="hidden">
+            <div id="fileInfo" class="file-info hidden"></div>
+        </div>
+        
+        <div id="controls" class="hidden">
+            <div id="waveform"></div>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <h3><i class="fas fa-sliders-h"></i> Equalizer</h3>
+                    
+                    <div class="control">
+                        <label for="bass">Bass</label>
+                        <input type="range" id="bass" min="-20" max="20" value="0">
+                    </div>
+                    
+                    <div class="control">
+                        <label for="treble">Treble</label>
+                        <input type="range" id="treble" min="-20" max="20" value="0">
+                    </div>
+                    
+                    <div class="control">
+                        <label for="mid">Mid</label>
+                        <input type="range" id="mid" min="-20" max="20" value="0">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3><i class="fas fa-magic"></i> Effects</h3>
+                    
+                    <div class="control">
+                        <label for="autotune">Auto-Tune</label>
+                        <input type="range" id="autotune" min="0" max="100" value="0">
+                    </div>
+                    
+                    <div class="control">
+                        <label for="reverb">Reverb</label>
+                        <input type="range" id="reverb" min="0" max="100" value="0">
+                    </div>
+                    
+                    <div class="control">
+                        <label for="delay">Delay</label>
+                        <input type="range" id="delay" min="0" max="100" value="0">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="player-controls">
+                <button id="playBtn"><i class="fas fa-play"></i> Play</button>
+                <button id="pauseBtn"><i class="fas fa-pause"></i> Pause</button>
+                <button id="stopBtn"><i class="fas fa-stop"></i> Stop</button>
+                <button id="downloadBtn"><i class="fas fa-download"></i> Download</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/wavesurfer.js@6.6"></script>
+    <script>
+        // Initialize WaveSurfer
+        const wavesurfer = WaveSurfer.create({
+            container: '#waveform',
+            waveColor: '#6c5ce7',
+            progressColor: '#fd79a8',
+            cursorColor: '#fff',
+            barWidth: 2,
+            barRadius: 3,
+            cursorWidth: 1,
+            height: 80,
+            barGap: 2
+        });
+
+        // DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const controls = document.getElementById('controls');
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        
+        // Audio context and nodes
+        let audioContext;
+        let sourceNode;
+        let gainNode;
+        let bassNode;
+        let trebleNode;
+        let midNode;
+        let autotuneNode;
+        let reverbNode;
+        let delayNode;
+        let destinationNode;
+        
+        // File handling
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            if (!file.type.match('audio.*')) {
+                alert('Please select an audio file');
+                return;
+            }
+            
+            // Display file info
+            fileInfo.textContent = `File: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            fileInfo.classList.remove('hidden');
+            
+            // Load the file into wavesurfer
+            const fileUrl = URL.createObjectURL(file);
+            wavesurfer.load(fileUrl);
+            
+            // Initialize audio context when user interacts
+            initAudioContext(fileUrl);
+            
+            // Show controls
+            controls.classList.remove('hidden');
+        });
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = 'rgba(108, 92, 231, 0.2)';
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.background = '';
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '';
+            fileInput.files = e.dataTransfer.files;
+            const event = new Event('change');
+            fileInput.dispatchEvent(event);
+        });
+        
+        // Initialize audio context
+        function initAudioContext(fileUrl) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create audio nodes
+            sourceNode = audioContext.createBufferSource();
+            gainNode = audioContext.createGain();
+            
+            // Create EQ filters
+            bassNode = audioContext.createBiquadFilter();
+            bassNode.type = 'lowshelf';
+            bassNode.frequency.value = 250;
+            
+            midNode = audioContext.createBiquadFilter();
+            midNode.type = 'peaking';
+            midNode.frequency.value = 1500;
+            midNode.Q.value = 1;
+            
+            trebleNode = audioContext.createBiquadFilter();
+            trebleNode.type = 'highshelf';
+            trebleNode.frequency.value = 4000;
+            
+            // Create effects (simplified for demo)
+            autotuneNode = audioContext.createGain();
+            reverbNode = audioContext.createConvolver();
+            delayNode = audioContext.createDelay();
+            
+            destinationNode = audioContext.destination;
+            
+            // Connect nodes
+            sourceNode.connect(bassNode);
+            bassNode.connect(midNode);
+            midNode.connect(trebleNode);
+            trebleNode.connect(autotuneNode);
+            autotuneNode.connect(reverbNode);
+            reverbNode.connect(delayNode);
+            delayNode.connect(gainNode);
+            gainNode.connect(destinationNode);
+            
+            // Load audio file
+            fetch(fileUrl)
+                .then(response => response.arrayBuffer())
+                .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                .then(audioBuffer => {
+                    sourceNode.buffer = audioBuffer;
+                    sourceNode.loop = true;
+                });
+        }
+        
+        // Player controls
+        playBtn.addEventListener('click', () => {
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            wavesurfer.play();
+        });
+        
+        pauseBtn.addEventListener('click', () => {
+            wavesurfer.pause();
+        });
+        
+        stopBtn.addEventListener('click', () => {
+            wavesurfer.stop();
+        });
+        
+        // Connect wavesurfer to audio context
+        wavesurfer.on('ready', () => {
+            // Disconnect wavesurfer's default audio context
+            wavesurfer.backend.disconnect();
+            
+            // Connect to our custom audio processing
+            wavesurfer.backend.ac.connect(bassNode);
+        });
+        
+        // Control event listeners
+        document.getElementById('bass').addEventListener('input', (e) => {
+            if (bassNode) bassNode.gain.value = parseInt(e.target.value);
+        });
+        
+        document.getElementById('treble').addEventListener('input', (e) => {
+            if (trebleNode) trebleNode.gain.value = parseInt(e.target.value);
+        });
+        
+        document.getElementById('mid').addEventListener('input', (e) => {
+            if (midNode) midNode.gain.value = parseInt(e.target.value);
+        });
+        
+        document.getElementById('autotune').addEventListener('input', (e) => {
+            if (autotuneNode) {
+                // Simplified auto-tune effect (real auto-tune would be more complex)
+                const amount = parseInt(e.target.value) / 100;
+                autotuneNode.gain.value = 1 + (amount * 0.5);
+            }
+        });
+        
+        document.getElementById('reverb').addEventListener('input', (e) => {
+            // Simplified reverb effect
+            // In a real app, you would load an impulse response
+        });
+        
+        document.getElementById('delay').addEventListener('input', (e) => {
+            if (delayNode) {
+                const amount = parseInt(e.target.value) / 100;
+                delayNode.delayTime.value = amount * 0.5;
+            }
+        });
+        
+        // Download functionality (simplified)
+        downloadBtn.addEventListener('click', () => {
+            alert('In a real app, this would process and download the modified audio. This demo shows the UI only.');
+        });
+    </script>
+</body>
+</html>
