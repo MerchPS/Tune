@@ -3,31 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Real-Time Audio Tuning</title>
+  <title>8D Audio MP3 Tuner</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #121212;
+      background: #0e0e0e;
       color: #fff;
       text-align: center;
-      margin: 0;
-      padding: 20px;
+      padding: 30px;
     }
-    h1 {
-      margin-bottom: 10px;
+    input[type="file"] {
+      margin: 10px;
     }
     canvas {
-      border: 1px solid #fff;
       width: 100%;
       height: 150px;
+      background: black;
+      border-radius: 10px;
       margin-top: 20px;
     }
-    .controls {
-      margin-top: 20px;
-    }
-    .controls label {
+    label {
       display: block;
-      margin-top: 10px;
+      margin: 10px;
     }
     input[type="range"] {
       width: 80%;
@@ -35,60 +32,65 @@
   </style>
 </head>
 <body>
-  <h1>🎧 Real-Time Audio Tuning</h1>
-  <button id="startBtn">Start Tuning</button>
-
-  <div class="controls" id="eqControls" style="display:none;">
-    <label>Bass (Low Frequency)
+  <h1>🎧 8D Audio MP3 Tuner</h1>
+  <input type="file" id="audioFile" accept="audio/mp3,audio/mpeg" />
+  <div id="controls" style="display:none;">
+    <label>Bass
       <input type="range" id="bass" min="0" max="2" value="1" step="0.01">
     </label>
-    <label>Mid (Mid Frequency)
+    <label>Mid
       <input type="range" id="mid" min="0" max="2" value="1" step="0.01">
     </label>
-    <label>Treble (High Frequency)
+    <label>Treble
       <input type="range" id="treble" min="0" max="2" value="1" step="0.01">
     </label>
-    <label>Gain (Volume)
+    <label>Gain
       <input type="range" id="gain" min="0" max="2" value="1" step="0.01">
     </label>
+    <label>8D Speed (Rotation)
+      <input type="range" id="speed" min="0.1" max="5" value="1" step="0.1">
+    </label>
   </div>
-
   <canvas id="visualizer" width="600" height="150"></canvas>
 
   <script>
-    const startBtn = document.getElementById('startBtn');
-    const bassControl = document.getElementById('bass');
-    const midControl = document.getElementById('mid');
-    const trebleControl = document.getElementById('treble');
-    const gainControl = document.getElementById('gain');
-    const eqControls = document.getElementById('eqControls');
+    const audioInput = document.getElementById('audioFile');
     const canvas = document.getElementById('visualizer');
-    const canvasCtx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d');
 
-    let audioContext, analyser, source, gainNode;
-    let filters = {};
+    const bassSlider = document.getElementById('bass');
+    const midSlider = document.getElementById('mid');
+    const trebleSlider = document.getElementById('treble');
+    const gainSlider = document.getElementById('gain');
+    const speedSlider = document.getElementById('speed');
+    const controls = document.getElementById('controls');
 
-    function createFilter(frequency) {
-      const filter = audioContext.createBiquadFilter();
-      filter.type = "peaking";
-      filter.frequency.value = frequency;
-      filter.Q.value = 1;
-      filter.gain.value = 0;
-      return filter;
+    let audioCtx, source, analyser;
+    let filters = {}, gainNode, panner;
+    let panAngle = 0;
+    let panSpeed = 1;
+    let audioBufferSource;
+
+    function createFilter(freq) {
+      const f = audioCtx.createBiquadFilter();
+      f.type = 'peaking';
+      f.frequency.value = freq;
+      f.Q.value = 1;
+      f.gain.value = 0;
+      return f;
     }
 
     function drawVisualizer() {
       requestAnimationFrame(drawVisualizer);
-
       const bufferLength = analyser.fftSize;
       const dataArray = new Uint8Array(bufferLength);
       analyser.getByteTimeDomainData(dataArray);
 
-      canvasCtx.fillStyle = "#121212";
-      canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-      canvasCtx.lineWidth = 2;
-      canvasCtx.strokeStyle = "#00ffcc";
-      canvasCtx.beginPath();
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#00ffcc";
+      ctx.beginPath();
 
       const sliceWidth = canvas.width / bufferLength;
       let x = 0;
@@ -96,60 +98,78 @@
       for (let i = 0; i < bufferLength; i++) {
         const v = dataArray[i] / 128.0;
         const y = (v * canvas.height) / 2;
-
-        if (i === 0) {
-          canvasCtx.moveTo(x, y);
-        } else {
-          canvasCtx.lineTo(x, y);
-        }
-
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         x += sliceWidth;
       }
 
-      canvasCtx.lineTo(canvas.width, canvas.height / 2);
-      canvasCtx.stroke();
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
     }
-
-    startBtn.addEventListener('click', async () => {
-      if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-        source = audioContext.createMediaStreamSource(stream);
-
-        filters.bass = createFilter(100);
-        filters.mid = createFilter(1000);
-        filters.treble = createFilter(5000);
-
-        gainNode = audioContext.createGain();
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 2048;
-
-        // Rantai Audio: Mic -> Bass -> Mid -> Treble -> Gain -> Analyser -> Output
-        source
-          .connect(filters.bass)
-          .connect(filters.mid)
-          .connect(filters.treble)
-          .connect(gainNode)
-          .connect(analyser)
-          .connect(audioContext.destination);
-
-        eqControls.style.display = 'block';
-        drawVisualizer();
-      }
-    });
 
     function updateFilters() {
-      filters.bass.gain.value = parseFloat(bassControl.value) * 10 - 10;
-      filters.mid.gain.value = parseFloat(midControl.value) * 10 - 10;
-      filters.treble.gain.value = parseFloat(trebleControl.value) * 10 - 10;
-      gainNode.gain.value = parseFloat(gainControl.value);
+      filters.bass.gain.value = parseFloat(bassSlider.value) * 10 - 10;
+      filters.mid.gain.value = parseFloat(midSlider.value) * 10 - 10;
+      filters.treble.gain.value = parseFloat(trebleSlider.value) * 10 - 10;
+      gainNode.gain.value = parseFloat(gainSlider.value);
+      panSpeed = parseFloat(speedSlider.value);
     }
 
-    bassControl.addEventListener('input', updateFilters);
-    midControl.addEventListener('input', updateFilters);
-    trebleControl.addEventListener('input', updateFilters);
-    gainControl.addEventListener('input', updateFilters);
+    function start8DAudioRotation() {
+      setInterval(() => {
+        panAngle += 0.01 * panSpeed;
+        const x = Math.sin(panAngle);
+        const z = Math.cos(panAngle);
+        panner.setPosition(x, 0, z);
+      }, 16); // ~60fps
+    }
+
+    audioInput.addEventListener('change', async function () {
+      const file = this.files[0];
+      if (!file) return;
+
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      const arrayBuffer = await file.arrayBuffer();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+      if (audioBufferSource) {
+        audioBufferSource.stop();
+      }
+
+      audioBufferSource = audioCtx.createBufferSource();
+      audioBufferSource.buffer = audioBuffer;
+
+      filters.bass = createFilter(100);
+      filters.mid = createFilter(1000);
+      filters.treble = createFilter(5000);
+      gainNode = audioCtx.createGain();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+
+      panner = audioCtx.createPanner();
+      panner.panningModel = 'HRTF';
+      panner.setPosition(0, 0, 1);
+
+      // Connect the nodes
+      audioBufferSource
+        .connect(filters.bass)
+        .connect(filters.mid)
+        .connect(filters.treble)
+        .connect(gainNode)
+        .connect(panner)
+        .connect(analyser)
+        .connect(audioCtx.destination);
+
+      controls.style.display = 'block';
+      updateFilters();
+      drawVisualizer();
+      start8DAudioRotation();
+      audioBufferSource.start();
+    });
+
+    [bassSlider, midSlider, trebleSlider, gainSlider, speedSlider].forEach(slider => {
+      slider.addEventListener('input', updateFilters);
+    });
   </script>
 </body>
 </html>
