@@ -80,6 +80,7 @@
 
   <h1>🎧 Advanced Audio Player 🎶</h1>
 
+  <!-- Button to select MP3 file -->
   <input type="file" id="audioFile" accept="audio/mp3" />
   <br><br>
 
@@ -264,80 +265,50 @@
 
         bassSlider.value = (1.2 - bassAvg / 128).toFixed(2);
         midSlider.value = (1.1 - midAvg / 256).toFixed(2);
-        trebleSlider.value = (1.3 - trebleAvg / 256).toFixed(2);
+        trebleSlider.value = (1.3 - trebleAvg / 512).toFixed(2);
+
         updateFilters();
-      }, 800);
+      }, 500);
     }
 
     function loopPanning() {
-      function panLoop() {
-        if (is8DActive) {
-          panAngle += 0.02;
-          panner.pan.value = Math.sin(panAngle);
-        } else {
-          panner.pan.value = 0;
-        }
-        requestAnimationFrame(panLoop);
+      if (is8DActive) {
+        panAngle += 0.02;
+        panner.pan.value = Math.sin(panAngle);
       }
-      panLoop();
+      requestAnimationFrame(loopPanning);
     }
 
-    function visualize() {
-      const canvas = document.getElementById('visualizer');
-      const ctx = canvas.getContext('2d');
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      function draw() {
-        requestAnimationFrame(draw);
-        analyser.getByteFrequencyData(dataArray);
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.save();
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-
-        for (let i = 0; i < bufferLength; i++) {
-          const radius = dataArray[i] * 0.7;
-          const angle = (i / bufferLength) * Math.PI * 2;
-          const x = Math.cos(angle) * radius;
-          const y = Math.sin(angle) * radius;
-
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(x, y);
-          ctx.strokeStyle = `hsl(${i * 6}, 100%, 60%)`;
-          ctx.stroke();
-        }
-
-        ctx.restore();
-      }
-      draw();
-    }
-
-    // Particle system
+    // Particle system generation
     function generateParticles() {
+      particles = [];
       for (let i = 0; i < numParticles; i++) {
         particles.push({
-          x: Math.random() * particleCanvas.width,
-          y: Math.random() * particleCanvas.height,
+          x: Math.random() * window.innerWidth,
+          y: Math.random() * window.innerHeight,
           size: Math.random() * 3 + 1,
-          speed: Math.random() * 2 + 1,
-          angle: Math.random() * 2 * Math.PI
+          speedX: Math.random() * 2 - 1,
+          speedY: Math.random() * 2 - 1,
         });
       }
       animateParticles();
     }
 
     function animateParticles() {
+      particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+      
+      // Get frequency data
       const freqData = new Uint8Array(analyser.frequencyBinCount);
       analyser.getByteFrequencyData(freqData);
+
       const bassAvg = freqData.slice(0, 40).reduce((a, b) => a + b, 0) / 40;
 
-      particles.forEach(p => {
-        const speed = p.speed + bassAvg / 10; // Adjust speed based on bass
-        p.x += Math.cos(p.angle) * speed;
-        p.y += Math.sin(p.angle) * speed;
+      // Move particles based on bass frequency
+      particles.forEach((p) => {
+        p.x += p.speedX + (bassAvg / 128); // Adjust speed based on bass
+        p.y += p.speedY + (bassAvg / 128);
 
+        // Recycle particles off-screen
         if (p.x > particleCanvas.width) p.x = 0;
         if (p.y > particleCanvas.height) p.y = 0;
         if (p.x < 0) p.x = particleCanvas.width;
