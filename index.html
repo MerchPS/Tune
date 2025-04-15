@@ -11,6 +11,8 @@
       text-align: center;
       padding: 2rem;
       transition: background 0.3s, color 0.3s;
+      position: relative;
+      overflow: hidden;
     }
 
     input[type="range"] {
@@ -21,6 +23,10 @@
       margin-top: 2rem;
       background: #111;
       border-radius: 10px;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: -1;
     }
 
     button {
@@ -111,6 +117,7 @@
     let autoTuneInterval;
     let panAngle = 0;
     let audioBuffer;
+    let particles = [];
 
     audioFile.addEventListener('change', function () {
       const file = this.files[0];
@@ -268,7 +275,22 @@
         const freqData = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(freqData);
 
+        // Create particles based on bass
+        particles.push(...generateParticles(freqData[0] / 255)); // Generate particles based on bass
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw particles
+        particles.forEach((particle, index) => {
+          ctx.beginPath();
+          ctx.arc(particle.x, particle.y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(0, 255, 255, ${particle.alpha})`;
+          ctx.fill();
+          particle.x += particle.vx;
+          particle.y += particle.vy;
+          particle.alpha -= 0.01;
+          if (particle.alpha <= 0) particles.splice(index, 1);
+        });
 
         ctx.fillStyle = 'rgb(0, 255, 255)';
         for (let i = 0; i < freqData.length; i++) {
@@ -279,6 +301,21 @@
         requestAnimationFrame(draw);
       }
       draw();
+    }
+
+    function generateParticles(bassLevel) {
+      const particleCount = Math.floor(bassLevel * 30); // Adjust particle count based on bass
+      let particles = [];
+      for (let i = 0; i < particleCount; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: (Math.random() - 0.5) * 5,
+          vy: (Math.random() - 0.5) * 5,
+          alpha: 1
+        });
+      }
+      return particles;
     }
 
     function createImpulseResponse(context) {
