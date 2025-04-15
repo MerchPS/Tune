@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Tune Studio</title>
+    <title>Real-Time Audio Tune Studio</title>
     <style>
         :root {
             --primary: #6c5ce7;
@@ -157,6 +157,13 @@
             color: rgba(255, 255, 255, 0.7);
         }
         
+        .value-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
         @media (max-width: 600px) {
             .controls {
                 grid-template-columns: 1fr;
@@ -167,13 +174,13 @@
 </head>
 <body>
     <div class="container">
-        <h1><i class="fas fa-music"></i> Audio Tune Studio</h1>
+        <h1><i class="fas fa-music"></i> Real-Time Audio Tune Studio</h1>
         
         <div id="uploadArea" class="upload-area">
             <i class="fas fa-cloud-upload-alt"></i>
-            <h3>Upload MP3 File</h3>
+            <h3>Upload Audio File</h3>
             <p>Drag & drop your audio file here or click to browse</p>
-            <input type="file" id="fileInput" accept="audio/mp3" class="hidden">
+            <input type="file" id="fileInput" accept="audio/*" class="hidden">
             <div id="fileInfo" class="file-info hidden"></div>
         </div>
         
@@ -185,18 +192,21 @@
                     <h3><i class="fas fa-sliders-h"></i> Equalizer</h3>
                     
                     <div class="control">
-                        <label for="bass">Bass</label>
-                        <input type="range" id="bass" min="-20" max="20" value="0">
+                        <label for="bass">Bass <span id="bassValue">0dB</span></label>
+                        <input type="range" id="bass" min="-20" max="20" value="0" step="0.1">
+                        <div class="value-display"><span>-20dB</span><span>+20dB</span></div>
                     </div>
                     
                     <div class="control">
-                        <label for="treble">Treble</label>
-                        <input type="range" id="treble" min="-20" max="20" value="0">
+                        <label for="treble">Treble <span id="trebleValue">0dB</span></label>
+                        <input type="range" id="treble" min="-20" max="20" value="0" step="0.1">
+                        <div class="value-display"><span>-20dB</span><span>+20dB</span></div>
                     </div>
                     
                     <div class="control">
-                        <label for="mid">Mid</label>
-                        <input type="range" id="mid" min="-20" max="20" value="0">
+                        <label for="mid">Mid <span id="midValue">0dB</span></label>
+                        <input type="range" id="mid" min="-20" max="20" value="0" step="0.1">
+                        <div class="value-display"><span>-20dB</span><span>+20dB</span></div>
                     </div>
                 </div>
                 
@@ -204,18 +214,21 @@
                     <h3><i class="fas fa-magic"></i> Effects</h3>
                     
                     <div class="control">
-                        <label for="autotune">Auto-Tune</label>
+                        <label for="autotune">Auto-Tune <span id="autotuneValue">0%</span></label>
                         <input type="range" id="autotune" min="0" max="100" value="0">
+                        <div class="value-display"><span>0%</span><span>100%</span></div>
                     </div>
                     
                     <div class="control">
-                        <label for="reverb">Reverb</label>
+                        <label for="reverb">Reverb <span id="reverbValue">0%</span></label>
                         <input type="range" id="reverb" min="0" max="100" value="0">
+                        <div class="value-display"><span>0%</span><span>100%</span></div>
                     </div>
                     
                     <div class="control">
-                        <label for="delay">Delay</label>
+                        <label for="delay">Delay <span id="delayValue">0%</span></label>
                         <input type="range" id="delay" min="0" max="100" value="0">
+                        <div class="value-display"><span>0%</span><span>100%</span></div>
                     </div>
                 </div>
             </div>
@@ -241,7 +254,8 @@
             barRadius: 3,
             cursorWidth: 1,
             height: 80,
-            barGap: 2
+            barGap: 2,
+            interact: false
         });
 
         // DOM elements
@@ -254,9 +268,18 @@
         const stopBtn = document.getElementById('stopBtn');
         const downloadBtn = document.getElementById('downloadBtn');
         
+        // Value displays
+        const bassValue = document.getElementById('bassValue');
+        const trebleValue = document.getElementById('trebleValue');
+        const midValue = document.getElementById('midValue');
+        const autotuneValue = document.getElementById('autotuneValue');
+        const reverbValue = document.getElementById('reverbValue');
+        const delayValue = document.getElementById('delayValue');
+        
         // Audio context and nodes
         let audioContext;
         let sourceNode;
+        let analyserNode;
         let gainNode;
         let bassNode;
         let trebleNode;
@@ -266,10 +289,16 @@
         let delayNode;
         let destinationNode;
         
+        // Current audio state
+        let isPlaying = false;
+        let audioBuffer = null;
+        let startTime = 0;
+        let pauseTime = 0;
+        
         // File handling
         uploadArea.addEventListener('click', () => fileInput.click());
         
-        fileInput.addEventListener('change', (e) => {
+        fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
             
@@ -286,8 +315,8 @@
             const fileUrl = URL.createObjectURL(file);
             wavesurfer.load(fileUrl);
             
-            // Initialize audio context when user interacts
-            initAudioContext(fileUrl);
+            // Initialize audio context
+            await initAudioContext(file);
             
             // Show controls
             controls.classList.remove('hidden');
@@ -312,115 +341,223 @@
         });
         
         // Initialize audio context
-        function initAudioContext(fileUrl) {
+        async function initAudioContext(file) {
+            // Create audio context
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             
             // Create audio nodes
             sourceNode = audioContext.createBufferSource();
+            analyserNode = audioContext.createAnalyser();
             gainNode = audioContext.createGain();
             
-            // Create EQ filters
+            // Create EQ filters with smoother curves
             bassNode = audioContext.createBiquadFilter();
             bassNode.type = 'lowshelf';
-            bassNode.frequency.value = 250;
+            bassNode.frequency.value = 150; // Lower frequency for smoother bass
+            bassNode.gain.value = 0;
             
             midNode = audioContext.createBiquadFilter();
             midNode.type = 'peaking';
-            midNode.frequency.value = 1500;
-            midNode.Q.value = 1;
+            midNode.frequency.value = 1200; // Adjusted mid frequency
+            midNode.Q.value = 0.5; // Smoother Q
+            midNode.gain.value = 0;
             
             trebleNode = audioContext.createBiquadFilter();
             trebleNode.type = 'highshelf';
-            trebleNode.frequency.value = 4000;
+            trebleNode.frequency.value = 3500; // Adjusted treble frequency
+            trebleNode.gain.value = 0;
             
-            // Create effects (simplified for demo)
+            // Create effects
             autotuneNode = audioContext.createGain();
+            autotuneNode.gain.value = 1;
+            
+            // Simple reverb using Convolver
             reverbNode = audioContext.createConvolver();
-            delayNode = audioContext.createDelay();
+            await createReverb();
+            
+            // Delay with feedback
+            delayNode = audioContext.createDelay(2.0);
+            const delayGain = audioContext.createGain();
+            delayGain.gain.value = 0;
+            delayNode.delayTime.value = 0.5;
             
             destinationNode = audioContext.destination;
             
             // Connect nodes
-            sourceNode.connect(bassNode);
+            sourceNode.connect(analyserNode);
+            analyserNode.connect(bassNode);
             bassNode.connect(midNode);
             midNode.connect(trebleNode);
             trebleNode.connect(autotuneNode);
             autotuneNode.connect(reverbNode);
             reverbNode.connect(delayNode);
+            delayNode.connect(delayGain);
+            delayGain.connect(delayNode); // Feedback loop
             delayNode.connect(gainNode);
             gainNode.connect(destinationNode);
             
+            // Also connect to analyser for visualization
+            analyserNode.connect(audioContext.destination);
+            
             // Load audio file
-            fetch(fileUrl)
-                .then(response => response.arrayBuffer())
-                .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
-                .then(audioBuffer => {
-                    sourceNode.buffer = audioBuffer;
-                    sourceNode.loop = true;
-                });
+            const arrayBuffer = await file.arrayBuffer();
+            audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            
+            // Connect wavesurfer to our audio processing
+            wavesurfer.on('ready', () => {
+                wavesurfer.backend.disconnect();
+                wavesurfer.backend.ac.connect(analyserNode);
+            });
+        }
+        
+        // Create simple reverb impulse response
+        async function createReverb() {
+            const sampleRate = audioContext.sampleRate;
+            const length = 2 * sampleRate;
+            const impulse = audioContext.createBuffer(2, length, sampleRate);
+            const left = impulse.getChannelData(0);
+            const right = impulse.getChannelData(1);
+            
+            for (let i = 0; i < length; i++) {
+                left[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 1.5);
+                right[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 1.5);
+            }
+            
+            reverbNode.buffer = impulse;
+        }
+        
+        // Play audio with current settings
+        function playAudio() {
+            if (!audioBuffer) return;
+            
+            stopAudio();
+            
+            sourceNode = audioContext.createBufferSource();
+            sourceNode.buffer = audioBuffer;
+            sourceNode.loop = true;
+            
+            // Reconnect nodes
+            sourceNode.connect(analyserNode);
+            analyserNode.connect(bassNode);
+            
+            // Set the playback position
+            if (pauseTime > 0) {
+                startTime = audioContext.currentTime - pauseTime;
+                sourceNode.start(0, pauseTime % audioBuffer.duration);
+            } else {
+                startTime = audioContext.currentTime;
+                sourceNode.start(0, wavesurfer.getCurrentTime() % audioBuffer.duration);
+            }
+            
+            isPlaying = true;
+            wavesurfer.play();
+        }
+        
+        // Pause audio
+        function pauseAudio() {
+            if (!isPlaying) return;
+            
+            pauseTime = audioContext.currentTime - startTime;
+            sourceNode.stop();
+            isPlaying = false;
+            wavesurfer.pause();
+        }
+        
+        // Stop audio
+        function stopAudio() {
+            if (sourceNode) {
+                try {
+                    sourceNode.stop();
+                } catch (e) {
+                    // Node already stopped
+                }
+            }
+            pauseTime = 0;
+            isPlaying = false;
+            wavesurfer.stop();
         }
         
         // Player controls
         playBtn.addEventListener('click', () => {
-            if (audioContext && audioContext.state === 'suspended') {
+            if (audioContext.state === 'suspended') {
                 audioContext.resume();
             }
-            wavesurfer.play();
+            playAudio();
         });
         
-        pauseBtn.addEventListener('click', () => {
-            wavesurfer.pause();
-        });
+        pauseBtn.addEventListener('click', pauseAudio);
         
-        stopBtn.addEventListener('click', () => {
-            wavesurfer.stop();
-        });
+        stopBtn.addEventListener('click', stopAudio);
         
-        // Connect wavesurfer to audio context
-        wavesurfer.on('ready', () => {
-            // Disconnect wavesurfer's default audio context
-            wavesurfer.backend.disconnect();
-            
-            // Connect to our custom audio processing
-            wavesurfer.backend.ac.connect(bassNode);
-        });
-        
-        // Control event listeners
+        // Control event listeners with smooth transitions
         document.getElementById('bass').addEventListener('input', (e) => {
-            if (bassNode) bassNode.gain.value = parseInt(e.target.value);
+            const value = parseFloat(e.target.value);
+            bassValue.textContent = `${value > 0 ? '+' : ''}${value.toFixed(1)}dB`;
+            
+            if (bassNode) {
+                // Smooth transition for bass
+                bassNode.gain.setTargetAtTime(value, audioContext.currentTime, 0.1);
+            }
         });
         
         document.getElementById('treble').addEventListener('input', (e) => {
-            if (trebleNode) trebleNode.gain.value = parseInt(e.target.value);
+            const value = parseFloat(e.target.value);
+            trebleValue.textContent = `${value > 0 ? '+' : ''}${value.toFixed(1)}dB`;
+            
+            if (trebleNode) {
+                // Smooth transition for treble
+                trebleNode.gain.setTargetAtTime(value, audioContext.currentTime, 0.1);
+            }
         });
         
         document.getElementById('mid').addEventListener('input', (e) => {
-            if (midNode) midNode.gain.value = parseInt(e.target.value);
+            const value = parseFloat(e.target.value);
+            midValue.textContent = `${value > 0 ? '+' : ''}${value.toFixed(1)}dB`;
+            
+            if (midNode) {
+                // Smooth transition for mid
+                midNode.gain.setTargetAtTime(value, audioContext.currentTime, 0.1);
+            }
         });
         
         document.getElementById('autotune').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            autotuneValue.textContent = `${value}%`;
+            
             if (autotuneNode) {
-                // Simplified auto-tune effect (real auto-tune would be more complex)
-                const amount = parseInt(e.target.value) / 100;
-                autotuneNode.gain.value = 1 + (amount * 0.5);
+                // Simplified auto-tune effect with smooth transition
+                const amount = value / 100;
+                const pitchShift = 1 + (amount * 0.2); // Max 20% pitch shift
+                autotuneNode.gain.setTargetAtTime(pitchShift, audioContext.currentTime, 0.1);
             }
         });
         
         document.getElementById('reverb').addEventListener('input', (e) => {
-            // Simplified reverb effect
-            // In a real app, you would load an impulse response
-        });
-        
-        document.getElementById('delay').addEventListener('input', (e) => {
-            if (delayNode) {
-                const amount = parseInt(e.target.value) / 100;
-                delayNode.delayTime.value = amount * 0.5;
+            const value = parseInt(e.target.value);
+            reverbValue.textContent = `${value}%`;
+            
+            if (reverbNode) {
+                // Adjust reverb wet/dry mix (simplified)
+                const wet = value / 100;
+                const dry = 1 - wet * 0.5; // Reduce dry signal as reverb increases
+                gainNode.gain.setTargetAtTime(dry, audioContext.currentTime, 0.1);
             }
         });
         
-        // Download functionality (simplified)
+        document.getElementById('delay').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            delayValue.textContent = `${value}%`;
+            
+            if (delayNode) {
+                // Adjust delay time and feedback
+                const delayTime = 0.1 + (value / 100) * 1.9; // 0.1s to 2s
+                delayNode.delayTime.setTargetAtTime(delayTime, audioContext.currentTime, 0.1);
+            }
+        });
+        
+        // Download functionality (would need Web Audio API offline rendering)
         downloadBtn.addEventListener('click', () => {
-            alert('In a real app, this would process and download the modified audio. This demo shows the UI only.');
+            alert('In a full implementation, this would process and download the modified audio with all effects applied.');
         });
     </script>
 </body>
