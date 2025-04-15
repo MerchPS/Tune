@@ -10,7 +10,6 @@
       color: white;
       text-align: center;
       padding: 2rem;
-      transition: background 0.3s, color 0.3s;
       position: relative;
       overflow: hidden;
     }
@@ -27,6 +26,7 @@
       top: 0;
       left: 0;
       z-index: -1;
+      filter: blur(3px);
     }
 
     button {
@@ -275,62 +275,76 @@
         const freqData = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(freqData);
 
-        // Create particles based on bass
-        particles.push(...generateParticles(freqData[0] / 255)); // Generate particles based on bass
-
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Draw particles
-        particles.forEach((particle, index) => {
-          ctx.beginPath();
-          ctx.arc(particle.x, particle.y, 3, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(0, 255, 255, ${particle.alpha})`;
-          ctx.fill();
-          particle.x += particle.vx;
-          particle.y += particle.vy;
-          particle.alpha -= 0.01;
-          if (particle.alpha <= 0) particles.splice(index, 1);
-        });
+        const maxFreq = Math.max(...freqData);
+        const particleCount = Math.floor(maxFreq / 10) + 10;
+        createParticles(particleCount);
 
-        ctx.fillStyle = 'rgb(0, 255, 255)';
-        for (let i = 0; i < freqData.length; i++) {
-          const barHeight = freqData[i];
-          ctx.fillRect(i * 3, canvas.height - barHeight, 2, barHeight);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, 60, 0, Math.PI * 2);
+        ctx.fill();
+
+        for (const p of particles) {
+          p.update();
+          p.draw(ctx);
         }
 
+        particles = particles.filter(p => !p.isOutOfBounds());
         requestAnimationFrame(draw);
       }
+
       draw();
     }
 
-    function generateParticles(bassLevel) {
-      const particleCount = Math.floor(bassLevel * 30); // Adjust particle count based on bass
-      let particles = [];
-      for (let i = 0; i < particleCount; i++) {
-        particles.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 5,
-          vy: (Math.random() - 0.5) * 5,
-          alpha: 1
-        });
+    function createParticles(count) {
+      for (let i = 0; i < count; i++) {
+        const particle = new Particle(canvas.width / 2, canvas.height / 2, Math.random() * 360, Math.random() * 2);
+        particles.push(particle);
       }
-      return particles;
     }
 
-    function createImpulseResponse(context) {
-      const buffer = context.createBuffer(2, context.sampleRate * 3, context.sampleRate);
-      const left = buffer.getChannelData(0);
-      const right = buffer.getChannelData(1);
+    class Particle {
+      constructor(x, y, angle, speed) {
+        this.x = x;
+        this.y = y;
+        this.angle = angle;
+        this.speed = speed;
+        this.size = Math.random() * 3 + 1;
+      }
 
-      for (let i = 0; i < buffer.length; i++) {
+      update() {
+        this.x += Math.cos(this.angle) * this.speed;
+        this.y += Math.sin(this.angle) * this.speed;
+        this.size *= 0.98;  // Gradually shrink particle
+      }
+
+      draw(ctx) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      isOutOfBounds() {
+        return this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height;
+      }
+    }
+
+    function createImpulseResponse(audioContext) {
+      const length = audioContext.sampleRate * 2;
+      const impulse = audioContext.createBuffer(2, length, audioContext.sampleRate);
+      const left = impulse.getChannelData(0);
+      const right = impulse.getChannelData(1);
+
+      for (let i = 0; i < length; i++) {
         left[i] = (Math.random() * 2 - 1) * 0.2;
         right[i] = (Math.random() * 2 - 1) * 0.2;
       }
 
-      return buffer;
+      return impulse;
     }
   </script>
-
 </body>
 </html>
